@@ -6,6 +6,21 @@ const { Triangle, Square, Tetrahedron, Windmill, Cube, Subdivision_Sphere } = de
 const { vec3, vec4, vec, color, Mat4, Light, Shape, Material, Shader, Texture, Scene } = tiny;
 
 let g_dx = null, g_dy = null;
+class Robot {
+  constructor(){
+    this.location = 0;
+    this.state = 0;
+    this.linear_velocity = [0,0,0];
+    this.time = 0;
+    this.torso = 0;
+    this.bottom_torso = 0;
+    this.head = 0;
+    this.left_arm = 0;
+    this.left_hand = 0;
+    this.right_arm = 0;
+    this.right_hand = 0;
+  }
+}
 
 export class Shape_From_File extends Shape
 {                                   // **Shape_From_File** is a versatile standalone Shape that imports
@@ -248,6 +263,7 @@ export class Project_Base extends Scene
   constructor()
     {                  // constructor(): Scenes begin by populating initial values like the Shapes and Materials they'll need.
       super();
+      this.robots = [];
       this.hover = this.swarm = false;
       this.shapes = { 'box'  : new Cube(),
                       'ball' : new Subdivision_Sphere( 4 ),
@@ -280,6 +296,13 @@ export class Project_Base extends Scene
       this.key_triggered_button( "Hover dragonfly in place", [ "h" ], function() { this.hover ^= 1; } );
       this.new_line();
       this.key_triggered_button( "Swarm mode", [ "m" ], function() { this.swarm ^= 1; } );
+      this.robot_kill = 0;
+      this.key_triggered_button( "Kill first robot", [ "m" ], function() { this.robots[this.robot_kill].state = 1; 
+                                                                            this.robots[this.robot_kill].time = this.t; 
+                                                                            this.robots[this.robot_kill].linear_velocity[0] = Math.random() * .7; 
+                                                                            this.robots[this.robot_kill].linear_velocity[1] = Math.random() * .7; 
+                                                                            this.robots[this.robot_kill].linear_velocity[2] = Math.random() * .7; 
+                                                                            this.robot_kill += 1; } );
     }
 
   display( context, program_state )
@@ -298,10 +321,16 @@ export class Project_Base extends Scene
           this.d = context.program_state.camera_inverse[3];
 
           // Spawn all robots
-          this.robot_location = [0, 0, 0];
-          this.robot_location[0] = Mat4.identity().times(Mat4.translation(0,0,-25)).times(Mat4.scale(0.5, 0.5, 0.5));
-          this.robot_location[1] = Mat4.identity().times(Mat4.translation(10,0,-45)).times(Mat4.scale(0.5, 0.5, 0.5));
-          this.robot_location[2] = Mat4.identity().times(Mat4.translation(-10,0,-45)).times(Mat4.scale(0.5, 0.5, 0.5));
+          let robot1 = new Robot();
+          this.robots.push(robot1);
+          let robot2 = new Robot();
+          this.robots.push(robot2);
+          let robot3 = new Robot();
+          this.robots.push(robot3);
+          this.robots[0].location = Mat4.identity().times(Mat4.translation(0,0,-25)).times(Mat4.scale(0.5, 0.5, 0.5));
+          this.robots[1].location = Mat4.identity().times(Mat4.translation(10,0,-45)).times(Mat4.scale(0.5, 0.5, 0.5));
+          this.robots[2].location = Mat4.identity().times(Mat4.translation(-10,0,-45)).times(Mat4.scale(0.5, 0.5, 0.5));
+          //  0 means alive - 1 means animate collapse - 2 means stay collapsed
         }
 
       // Default Required Variables
@@ -312,39 +341,83 @@ export class Project_Base extends Scene
       program_state.lights = [ new Light( light_position, color( 1,1,1,1 ), 1000000 ) ];
     }
 
-  draw_robot(context, program_state, index, robot_center)
+  draw_robot(context, program_state, index)
   {
+    let robot_state = this.robots[index].state;
+    // Alive
+    if(robot_state == 0){
+      // Calculate robot's planned path
+      let x_location_diff = ((-1 * this.player_x[3]) - this.robots[index].location[0][3])/100;
+      let y_location_diff = ((-1 * this.player_y[3]) - this.robots[index].location[1][3])/100;
+      let z_location_diff = ((-1 * this.player_z[3]) - this.robots[index].location[2][3])/100;
+      let euclidean_dist = 10 * Math.sqrt(Math.pow(x_location_diff, 2) + Math.pow(z_location_diff, 2));
+      let x_rotation_angle  = 0.005 * Math.atan(x_location_diff/z_location_diff);
 
-    // Calculate robot's planned path
-    let x_location_diff = ((-1 * this.player_x[3]) - this.robot_location[index][0][3])/100;
-    let y_location_diff = ((-1 * this.player_y[3]) - this.robot_location[index][1][3])/100;
-    let z_location_diff = ((-1 * this.player_z[3]) - this.robot_location[index][2][3])/100;
-    let euclidean_dist = 10 * Math.sqrt(Math.pow(x_location_diff, 2) + Math.pow(z_location_diff, 2));
-    let x_rotation_angle  = 0.005 * Math.atan(x_location_diff/z_location_diff);
-
-    // Set robot's planned path
-    this.robot_location[index] = this.robot_location[index]
-        .times(Mat4.rotation(x_rotation_angle, 0, 1, 0))
-        .times(Mat4.translation(x_location_diff/euclidean_dist, 0, z_location_diff/euclidean_dist));
+      // Set robot's planned path
+      this.robots[index].location = this.robots[index].location
+          .times(Mat4.rotation(x_rotation_angle, 0, 1, 0))
+          .times(Mat4.translation(x_location_diff/euclidean_dist, 0, z_location_diff/euclidean_dist));
+      var top_torso_transform = this.robots[index].location;
+      this.robots[index].torso = this.robots[index].location;
+      this.robots[index].torso = this.robots[index].location.times(Mat4.translation(0, 0, 0));
+      this.robots[index].head = top_torso_transform.times(Mat4.translation(0, 2.9, 0));
+      this.robots[index].bottom_torso = top_torso_transform.times(Mat4.rotation(Math.PI, 0, 1, 0))
+          .times(Mat4.translation(0, -2.0, 0));
+      this.robots[index].left_arm = top_torso_transform.times(Mat4.translation(2, 0, 0));
+      this.robots[index].left_hand = top_torso_transform.times(Mat4.translation(2.9, -2.7, 0))
+          .times(Mat4.scale(0.5, 0.5, 0.5));
+      this.robots[index].right_arm = top_torso_transform.times(Mat4.translation(-2, 0, 0));
+      this.robots[index].right_hand = top_torso_transform.times(Mat4.translation(-2.9, -2.7, 0))
+          .times(Mat4.scale(0.5, 0.5, 0.5));
+    }
+    // Collapse
+    else if(robot_state == 1){
+      let broken_parts = 0;
+      var top_torso_transform = this.robots[index].location;
+      let t = (this.t - this.robots[index].time);
+      let x = this.robots[index].linear_velocity[0] + t;
+      let y = (-1) / 2 * 9.8 * t * t + this.robots[index].linear_velocity[1] + t;
+      let z = this.robots[index].linear_velocity[2] + t;
+      if(this.robots[index].head[1][3] < this.robots[index].location[1][3] - 1.3 ){
+        broken_parts |= 1;
+      }else{
+        this.robots[index].head = top_torso_transform.times(Mat4.translation(x*.5, 2.9 + y, z));
+      }
+      if(this.robots[index].torso[1][3] < this.robots[index].location[1][3] - 1){
+        broken_parts |= 2;
+      }else{
+        this.robots[index].torso = this.robots[index].location.times(Mat4.translation(-x*.5, y, -z));
+        this.robots[index].bottom_torso = top_torso_transform.times(Mat4.rotation(Math.PI, 0, 1, 0))
+          .times(Mat4.translation(0, -2.0, 0));
+      }
+      if(y + 2< 0){
+        broken_parts |= 4;
+      }
+      else{
+        this.robots[index].left_arm = top_torso_transform.times(Mat4.translation(2+x, y, 0));
+        this.robots[index].left_hand = top_torso_transform.times(Mat4.translation(2.9+x, -2.7 + y, 0))
+          .times(Mat4.scale(0.5, 0.5, 0.5));
+        this.robots[index].right_arm = top_torso_transform.times(Mat4.translation(-2-x, y, 0));
+        this.robots[index].right_hand = top_torso_transform.times(Mat4.translation(-2.9-x, -2.7 + y, 0))
+          .times(Mat4.scale(0.5, 0.5, 0.5));
+      }
+      
+      if(broken_parts == 8){
+        this.robots[index].state = 2;
+      }
+    }
+    // Dead
+    else if(robot_state == 2){
+    }
 
     // Draw Robot at robot_center
-    const top_torso_transform = robot_center;
-    const head_transform = top_torso_transform.times(Mat4.translation(0, 2.9, 0));
-    const bottom_torso_transform = top_torso_transform.times(Mat4.rotation(Math.PI, 0, 1, 0))
-        .times(Mat4.translation(0, -2.0, 0));
-    const left_arm_transform = top_torso_transform.times(Mat4.translation(2, 0, 0));
-    const left_hand_transform = top_torso_transform.times(Mat4.translation(2.9, -2.7, 0))
-        .times(Mat4.scale(0.5, 0.5, 0.5));
-    const right_arm_transform = top_torso_transform.times(Mat4.translation(-2, 0, 0));
-    const right_hand_transform = top_torso_transform.times(Mat4.translation(-2.9, -2.7, 0))
-        .times(Mat4.scale(0.5, 0.5, 0.5));
-    this.shapes.head.draw( context, program_state, head_transform, this.materials.robot_texture);
-    this.shapes.top_torso.draw( context, program_state, top_torso_transform, this.materials.robot_texture);
-    this.shapes.bottom_torso.draw( context, program_state, bottom_torso_transform, this.materials.robot_texture);
-    this.shapes.left_arm.draw( context, program_state, left_arm_transform, this.materials.robot_texture);
-    this.shapes.left_hand.draw( context, program_state, left_hand_transform, this.materials.robot_texture);
-    this.shapes.right_arm.draw( context, program_state, right_arm_transform, this.materials.robot_texture);
-    this.shapes.right_hand.draw( context, program_state, right_hand_transform, this.materials.robot_texture);
+    this.shapes.head.draw( context, program_state, this.robots[index].head, this.materials.robot_texture);
+    this.shapes.top_torso.draw( context, program_state, this.robots[index].torso, this.materials.robot_texture);
+    this.shapes.bottom_torso.draw( context, program_state, this.robots[index].bottom_torso, this.materials.robot_texture);
+    this.shapes.left_arm.draw( context, program_state, this.robots[index].left_arm, this.materials.robot_texture);
+    this.shapes.left_hand.draw( context, program_state, this.robots[index].left_hand, this.materials.robot_texture);
+    this.shapes.right_arm.draw( context, program_state, this.robots[index].right_arm, this.materials.robot_texture);
+    this.shapes.right_hand.draw( context, program_state, this.robots[index].right_hand, this.materials.robot_texture);
   }
 }
 
@@ -385,8 +458,8 @@ export class Project extends Project_Base
       // context.program_state.camera_inverse = Mat4.translation(this.player_x[3], 0, this.player_z[3]);
 
       // Draw robot
-      this.draw_robot(context, program_state, 0, this.robot_location[0]);
-      this.draw_robot(context, program_state, 1, this.robot_location[1]);
-      this.draw_robot(context, program_state, 2, this.robot_location[2]);
+      this.draw_robot(context, program_state, 0);
+      this.draw_robot(context, program_state, 1);
+      this.draw_robot(context, program_state, 2);
     }
 }
