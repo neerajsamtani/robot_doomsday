@@ -10,6 +10,14 @@ class Robot {
     this.location = 0;
     this.state = 0;
     this.linear_velocity = [0,0,0];
+    this.time = 0;
+    this.torso = 0;
+    this.bottom_torso = 0;
+    this.head = 0;
+    this.left_arm = 0;
+    this.left_hand = 0;
+    this.right_arm = 0;
+    this.right_hand = 0;
   }
 }
 
@@ -147,7 +155,12 @@ export class Project_Base extends Scene
       this.new_line();
       this.key_triggered_button( "Swarm mode", [ "m" ], function() { this.swarm ^= 1; } );
       this.robot_kill = 0;
-      this.key_triggered_button( "Kill first robot", [ "m" ], function() { this.robots[this.robot_kill].state = 1; this.robot_kill += 1; } );
+      this.key_triggered_button( "Kill first robot", [ "m" ], function() { this.robots[this.robot_kill].state = 1; 
+                                                                            this.robots[this.robot_kill].time = this.t; 
+                                                                            this.robots[this.robot_kill].linear_velocity[0] = Math.random() * .7; 
+                                                                            this.robots[this.robot_kill].linear_velocity[1] = Math.random() * .7; 
+                                                                            this.robots[this.robot_kill].linear_velocity[2] = Math.random() * .7; 
+                                                                            this.robot_kill += 1; } );
     }
 
   display( context, program_state )
@@ -203,55 +216,66 @@ export class Project_Base extends Scene
           .times(Mat4.rotation(x_rotation_angle, 0, 1, 0))
           .times(Mat4.translation(x_location_diff/euclidean_dist, 0, z_location_diff/euclidean_dist));
       var top_torso_transform = this.robots[index].location;
-      var head_transform = top_torso_transform.times(Mat4.translation(0, 2.9, 0));
-      var bottom_torso_transform = top_torso_transform.times(Mat4.rotation(Math.PI, 0, 1, 0))
+      this.robots[index].torso = this.robots[index].location;
+      this.robots[index].torso = this.robots[index].location.times(Mat4.translation(0, 0, 0));
+      this.robots[index].head = top_torso_transform.times(Mat4.translation(0, 2.9, 0));
+      this.robots[index].bottom_torso = top_torso_transform.times(Mat4.rotation(Math.PI, 0, 1, 0))
           .times(Mat4.translation(0, -2.0, 0));
-      var left_arm_transform = top_torso_transform.times(Mat4.translation(2, 0, 0));
-      var left_hand_transform = top_torso_transform.times(Mat4.translation(2.9, -2.7, 0))
+      this.robots[index].left_arm = top_torso_transform.times(Mat4.translation(2, 0, 0));
+      this.robots[index].left_hand = top_torso_transform.times(Mat4.translation(2.9, -2.7, 0))
           .times(Mat4.scale(0.5, 0.5, 0.5));
-      var right_arm_transform = top_torso_transform.times(Mat4.translation(-2, 0, 0));
-      var right_hand_transform = top_torso_transform.times(Mat4.translation(-2.9, -2.7, 0))
+      this.robots[index].right_arm = top_torso_transform.times(Mat4.translation(-2, 0, 0));
+      this.robots[index].right_hand = top_torso_transform.times(Mat4.translation(-2.9, -2.7, 0))
           .times(Mat4.scale(0.5, 0.5, 0.5));
     }
     // Collapse
     else if(robot_state == 1){
-      this.robots[index].location = this.robots[index].location.times(Mat4.rotation(1,0,1,0));
+      let broken_parts = 0;
       var top_torso_transform = this.robots[index].location;
-      var head_transform = top_torso_transform.times(Mat4.translation(0, 2.9, 0));
-      var bottom_torso_transform = top_torso_transform.times(Mat4.rotation(Math.PI, 0, 1, 0))
+      let t = (this.t - this.robots[index].time);
+      let x = this.robots[index].linear_velocity[0] + t;
+      let y = (-1) / 2 * 9.8 * t * t + this.robots[index].linear_velocity[1] + t;
+      let z = this.robots[index].linear_velocity[2] + t;
+      if(this.robots[index].head[1][3] < this.robots[index].location[1][3] - 1.3 ){
+        broken_parts |= 1;
+      }else{
+        this.robots[index].head = top_torso_transform.times(Mat4.translation(x*.5, 2.9 + y, z));
+      }
+      if(this.robots[index].torso[1][3] < this.robots[index].location[1][3] - 1){
+        broken_parts |= 2;
+      }else{
+        this.robots[index].torso = this.robots[index].location.times(Mat4.translation(-x*.5, y, -z));
+        this.robots[index].bottom_torso = top_torso_transform.times(Mat4.rotation(Math.PI, 0, 1, 0))
           .times(Mat4.translation(0, -2.0, 0));
-      var left_arm_transform = top_torso_transform.times(Mat4.translation(2, 0, 0));
-      var left_hand_transform = top_torso_transform.times(Mat4.translation(2.9, -2.7, 0))
+      }
+      if(y + 2< 0){
+        broken_parts |= 4;
+      }
+      else{
+        this.robots[index].left_arm = top_torso_transform.times(Mat4.translation(2+x, y, 0));
+        this.robots[index].left_hand = top_torso_transform.times(Mat4.translation(2.9+x, -2.7 + y, 0))
           .times(Mat4.scale(0.5, 0.5, 0.5));
-      var right_arm_transform = top_torso_transform.times(Mat4.translation(-2, 0, 0));
-      var right_hand_transform = top_torso_transform.times(Mat4.translation(-2.9, -2.7, 0))
+        this.robots[index].right_arm = top_torso_transform.times(Mat4.translation(-2-x, y, 0));
+        this.robots[index].right_hand = top_torso_transform.times(Mat4.translation(-2.9-x, -2.7 + y, 0))
           .times(Mat4.scale(0.5, 0.5, 0.5));
-      if(this.robots[index].linear_velocity[1] < 0.1){
+      }
+      
+      if(broken_parts == 8){
         this.robots[index].state = 2;
       }
     }
     // Dead
     else if(robot_state == 2){
-      var top_torso_transform = this.robots[index].location;
-      var head_transform = top_torso_transform.times(Mat4.translation(0, 2.9, 0));
-      var bottom_torso_transform = top_torso_transform.times(Mat4.rotation(Math.PI, 0, 1, 0))
-          .times(Mat4.translation(0, -2.0, 0));
-      var left_arm_transform = top_torso_transform.times(Mat4.translation(2, 0, 0));
-      var left_hand_transform = top_torso_transform.times(Mat4.translation(2.9, -2.7, 0))
-          .times(Mat4.scale(0.5, 0.5, 0.5));
-      var right_arm_transform = top_torso_transform.times(Mat4.translation(-2, 0, 0));
-      var right_hand_transform = top_torso_transform.times(Mat4.translation(-2.9, -2.7, 0))
-          .times(Mat4.scale(0.5, 0.5, 0.5));
     }
 
     // Draw Robot at robot_center
-    this.shapes.head.draw( context, program_state, head_transform, this.materials.robot_texture);
-    this.shapes.top_torso.draw( context, program_state, top_torso_transform, this.materials.robot_texture);
-    this.shapes.bottom_torso.draw( context, program_state, bottom_torso_transform, this.materials.robot_texture);
-    this.shapes.left_arm.draw( context, program_state, left_arm_transform, this.materials.robot_texture);
-    this.shapes.left_hand.draw( context, program_state, left_hand_transform, this.materials.robot_texture);
-    this.shapes.right_arm.draw( context, program_state, right_arm_transform, this.materials.robot_texture);
-    this.shapes.right_hand.draw( context, program_state, right_hand_transform, this.materials.robot_texture);
+    this.shapes.head.draw( context, program_state, this.robots[index].head, this.materials.robot_texture);
+    this.shapes.top_torso.draw( context, program_state, this.robots[index].torso, this.materials.robot_texture);
+    this.shapes.bottom_torso.draw( context, program_state, this.robots[index].bottom_torso, this.materials.robot_texture);
+    this.shapes.left_arm.draw( context, program_state, this.robots[index].left_arm, this.materials.robot_texture);
+    this.shapes.left_hand.draw( context, program_state, this.robots[index].left_hand, this.materials.robot_texture);
+    this.shapes.right_arm.draw( context, program_state, this.robots[index].right_arm, this.materials.robot_texture);
+    this.shapes.right_hand.draw( context, program_state, this.robots[index].right_hand, this.materials.robot_texture);
   }
 }
 
