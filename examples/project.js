@@ -120,7 +120,8 @@ export class Project_Base extends Scene
                       "ground" : new Capped_Cylinder(100, 100, [[0,2],[0,1]]),
                       "skybox": new Subdivision_Sphere(4),
                       "tree_trunk": new Shape_From_File("assets/tree_trunk.obj"),
-                      "tree_leaves": new Shape_From_File("assets/tree_leaves.obj")};
+                      "tree_leaves": new Shape_From_File("assets/tree_leaves.obj"),
+                      "rock" : new Shape_From_File("assets/rock.obj")};
 
       this.shapes.ground.arrays.texture_coord.forEach( p => p.scale_by(50));
       const phong = new defs.Phong_Shader();
@@ -134,11 +135,12 @@ export class Project_Base extends Scene
                         ground: new Material( textured, { ambient: 1, specularity: 0.2, texture: new Texture( "assets/grass2.jpg")}),
                         sky: new Material( textured, { ambient: 1, specularity: 0.2, texture: new Texture( "assets/sky.jpg" ), color: color( 0,0,0,1 )}),
                         tree_leaves: new Material(phong, { ambient: .2, diffusivity: 1, specularity: .5, color: color( 0, 0.9, .1,1 ) } ),
-                        tree_trunk: new Material(phong, {ambient: .2, diffusivity: 1, specularity: .5, color: color(0.9, 0.4, 0.1, 1)})
-      };
+                        tree_trunk: new Material(phong, {ambient: .2, diffusivity: 1, specularity: .5, color: color(0.9, 0.4, 0.1, 1)}),
+                        rock: new Material(phong, {ambient: .2, diffusivity: 1, specularity: 0.5, color: color(0.9, 0.9, 0.9, 1)})};
+
       this.random_x = []
       this.random_z = []
-      for(var i = 0; i < 10; i+= 1){
+      for(var i = 0; i < 15; i+= 1){
         var R = 48 * Math.random();
         var theta = Math.random() * 2 * Math.PI;
         this.random_x.push(R*Math.cos(theta));
@@ -181,7 +183,7 @@ export class Project_Base extends Scene
         }
 
       // Default Required Variables
-      program_state.projection_transform = Mat4.perspective( Math.PI/4, context.width/context.height, 1, 100 );
+      program_state.projection_transform = Mat4.perspective( Math.PI/4, context.width/context.height, 1, 150 );
       const t = this.t = program_state.animation_time/1000;
       const angle = Math.sin( t );
       //const light_position = Mat4.rotation( angle,   1,0,0 ).times( vec4( 0,-1,1,0 ) );
@@ -233,7 +235,7 @@ export class Project_Base extends Scene
 
   //Function to draw trees randomly in the environment
   draw_trees(context, program_state, model_transform){
-    for(var i = 0; i < 10; i+= 1){
+    for(var i = 0; i < 15; i+= 1){
       this.shapes.tree_trunk.draw(context, program_state, model_transform.times(Mat4.translation(this.random_x[i], 0.5, this.random_z[i])), this.materials.tree_trunk);
       this.shapes.tree_leaves.draw(context, program_state, model_transform.times(Mat4.translation(this.random_x[i], 1.4, this.random_z[i])), this.materials.tree_leaves);
     }
@@ -245,6 +247,9 @@ export class Project_Base extends Scene
     this.shapes.skybox.draw(context, program_state, model_transform.times(Mat4.rotation(Math.PI/2, 1, 0, 0)).times(Mat4.scale(60, 60, 60)), this.materials.sky);
     //this.draw_tree(context, program_state, model_transform);
     this.draw_trees(context, program_state, model_transform);
+    this.shapes.rock.draw(context, program_state, model_transform.times(Mat4.translation(0, -1, 0)), this.materials.rock);
+    this.shapes.rock.draw(context, program_state, model_transform.times(Mat4.translation(10, -1, 15)), this.materials.rock);
+    this.shapes.rock.draw(context, program_state, model_transform.times(Mat4.translation(17, -1, 33)), this.materials.rock);
   }
 }
 
