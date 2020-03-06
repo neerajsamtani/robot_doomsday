@@ -1,7 +1,7 @@
 import {tiny, defs} from './common.js';
 
                                                   // Pull these names into this module's scope for convenience:
-const { Triangle, Square, Tetrahedron, Windmill, Cube, Subdivision_Sphere } = defs;
+const { Triangle, Square, Tetrahedron, Windmill, Cube, Subdivision_Sphere, Capped_Cylinder } = defs;
 // Pull these names into this module's scope for convenience:
 const { vec3, vec4, vec, color, Mat4, Light, Shape, Material, Shader, Texture, Scene } = tiny;
 
@@ -116,15 +116,34 @@ export class Project_Base extends Scene
                       "left_arm": new Shape_From_File( "assets/Left-Arm.obj"),
                       "left_hand": new Shape_From_File( "assets/Left-Hand.obj"),
                       "right_arm": new Shape_From_File( "assets/Right-Arm.obj"),
-                      "right_hand": new Shape_From_File( "assets/Right-Hand.obj")};
+                      "right_hand": new Shape_From_File( "assets/Right-Hand.obj"),
+                      "ground" : new Capped_Cylinder(100, 100, [[0,2],[0,1]]),
+                      "skybox": new Subdivision_Sphere(4),
+                      "tree_trunk": new Shape_From_File("assets/tree_trunk.obj"),
+                      "tree_leaves": new Shape_From_File("assets/tree_leaves.obj")};
 
+      this.shapes.ground.arrays.texture_coord.forEach( p => p.scale_by(50));
       const phong = new defs.Phong_Shader();
+      const textured = new defs.Textured_Phong( 1 )
       this.materials = { plastic: new Material( phong,
                                     { ambient: .2, diffusivity: 1, specularity: .5, color: color( .9,.5,.9,1 ) } ),
                         metal: new Material( phong,
                                     { ambient: .2, diffusivity: 1, specularity:  1, color: color( .9,.5,.9,1 ) } ),
-                        robot_texture: new Material( new defs.Textured_Phong( 1 ),  { color: color( .5,.5,.5,1 ),
-                                ambient: .3, diffusivity: .5, specularity: .5, texture: new Texture( "assets/R1_Color.jpg" )})};
+                        robot_texture: new Material( textured,  { color: color( .5,.5,.5,1 ),
+                                ambient: .3, diffusivity: .5, specularity: .5, texture: new Texture( "assets/R1_Color.jpg" )}),
+                        ground: new Material( textured, { ambient: 1, specularity: 0.2, texture: new Texture( "assets/grass2.jpg")}),
+                        sky: new Material( textured, { ambient: 1, specularity: 0.2, texture: new Texture( "assets/sky.jpg" ), color: color( 0,0,0,1 )}),
+                        tree_leaves: new Material(phong, { ambient: .2, diffusivity: 1, specularity: .5, color: color( 0, 0.9, .1,1 ) } ),
+                        tree_trunk: new Material(phong, {ambient: .2, diffusivity: 1, specularity: .5, color: color(0.9, 0.4, 0.1, 1)})
+      };
+      this.random_x = []
+      this.random_z = []
+      for(var i = 0; i < 10; i+= 1){
+        var R = 48 * Math.random();
+        var theta = Math.random() * 2 * Math.PI;
+        this.random_x.push(R*Math.cos(theta));
+        this.random_z.push(R*Math.sin(theta));
+      }
     }
   make_control_panel()
     {                                 // make_control_panel(): Sets up a panel of interactive HTML elements, including
@@ -165,8 +184,8 @@ export class Project_Base extends Scene
       program_state.projection_transform = Mat4.perspective( Math.PI/4, context.width/context.height, 1, 100 );
       const t = this.t = program_state.animation_time/1000;
       const angle = Math.sin( t );
-      const light_position = Mat4.rotation( angle,   1,0,0 ).times( vec4( 0,-1,1,0 ) );
-      program_state.lights = [ new Light( light_position, color( 1,1,1,1 ), 1000000 ) ];
+      //const light_position = Mat4.rotation( angle,   1,0,0 ).times( vec4( 0,-1,1,0 ) );
+      program_state.lights = [ new Light( vec4( 0,-1,1,0 ), color( 1,1,1,1 ), 1000000 ) ];
     }
 
   draw_robot(context, program_state, index, robot_center)
@@ -202,6 +221,30 @@ export class Project_Base extends Scene
     this.shapes.left_hand.draw( context, program_state, left_hand_transform, this.materials.robot_texture);
     this.shapes.right_arm.draw( context, program_state, right_arm_transform, this.materials.robot_texture);
     this.shapes.right_hand.draw( context, program_state, right_hand_transform, this.materials.robot_texture);
+  }
+  /*
+  draw_tree(context, program_state, model_transform){
+    for(var theta = 0; theta < 2*Math.PI; theta+=0.1){
+      this.shapes.tree_trunk.draw(context, program_state, model_transform.times(Mat4.translation(48*Math.cos(theta), 0.5, 48*Math.sin(theta))), this.materials.plastic);
+      this.shapes.tree_leaves.draw(context, program_state, model_transform.times(Mat4.translation(48*Math.cos(theta), 1.4, 48*Math.sin(theta))), this.materials.tree_leaves);
+    }
+  }
+ */
+
+  //Function to draw trees randomly in the environment
+  draw_trees(context, program_state, model_transform){
+    for(var i = 0; i < 10; i+= 1){
+      this.shapes.tree_trunk.draw(context, program_state, model_transform.times(Mat4.translation(this.random_x[i], 0.5, this.random_z[i])), this.materials.tree_trunk);
+      this.shapes.tree_leaves.draw(context, program_state, model_transform.times(Mat4.translation(this.random_x[i], 1.4, this.random_z[i])), this.materials.tree_leaves);
+    }
+  }
+
+  //Function to draw the environment
+  draw_environment(context, program_state, model_transform){
+    this.shapes.ground.draw(context, program_state, model_transform.times(Mat4.rotation(Math.PI/2, 1, 0, 0)).times(Mat4.translation(0, 0, 2)).times(Mat4.scale(50, 50, 0.5)), this.materials.ground);
+    this.shapes.skybox.draw(context, program_state, model_transform.times(Mat4.rotation(Math.PI/2, 1, 0, 0)).times(Mat4.scale(60, 60, 60)), this.materials.sky);
+    //this.draw_tree(context, program_state, model_transform);
+    this.draw_trees(context, program_state, model_transform);
   }
 }
 
@@ -245,5 +288,7 @@ export class Project extends Project_Base
       this.draw_robot(context, program_state, 0, this.robot_location[0]);
       this.draw_robot(context, program_state, 1, this.robot_location[1]);
       this.draw_robot(context, program_state, 2, this.robot_location[2]);
+      // Draw environment
+      this.draw_environment(context, program_state, model_transform);
     }
 }
