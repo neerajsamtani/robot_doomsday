@@ -12,12 +12,15 @@ class Robot {
     this.linear_velocity = [0,0,0];
     this.time = 0;
     this.torso = 0;
+    this.torso_prop = [0, 0];
     this.bottom_torso = 0;
     this.head = 0;
+    this.head_prop = [0,0]
     this.left_arm = 0;
     this.left_hand = 0;
     this.right_arm = 0;
     this.right_hand = 0;
+    this.arm_prop = [0,0];
   }
 }
 
@@ -157,9 +160,9 @@ export class Project_Base extends Scene
       this.robot_kill = 0;
       this.key_triggered_button( "Kill first robot", [ "m" ], function() { this.robots[this.robot_kill].state = 1; 
                                                                             this.robots[this.robot_kill].time = this.t; 
-                                                                            this.robots[this.robot_kill].linear_velocity[0] = Math.random() * .7; 
-                                                                            this.robots[this.robot_kill].linear_velocity[1] = Math.random() * .7; 
-                                                                            this.robots[this.robot_kill].linear_velocity[2] = Math.random() * .7; 
+                                                                            this.robots[this.robot_kill].linear_velocity[0] = (Math.random() + 1) * 1.2; 
+                                                                            this.robots[this.robot_kill].linear_velocity[1] = (Math.random() + 1) * 1.2; 
+                                                                            this.robots[this.robot_kill].linear_velocity[2] = (Math.random() + 1) * 1.2; 
                                                                             this.robot_kill += 1; } );
     }
 
@@ -232,40 +235,60 @@ export class Project_Base extends Scene
     else if(robot_state == 1){
       let broken_parts = 0;
       var top_torso_transform = this.robots[index].location;
-      let t = (this.t - this.robots[index].time);
-      let x = this.robots[index].linear_velocity[0] + t;
-      let y = (-1) / 2 * 9.8 * t * t + this.robots[index].linear_velocity[1] + t;
-      let z = this.robots[index].linear_velocity[2] + t;
-      if(this.robots[index].head[1][3] < this.robots[index].location[1][3] - 1.3 ){
+      let t = (this.t - this.robots[index].time) * 1.5;
+      let x = this.robots[index].linear_velocity[0] * t;
+      let y = (-1) / 2 * 9.8 * t * t + this.robots[index].linear_velocity[1] * t;
+      let z = this.robots[index].linear_velocity[2] * t;
+
+      // Head collapse and bounce
+      if(this.robots[index].head[1][3] < this.robots[index].location[1][3] - 1.3 && this.robots[index].head_prop[0] && (this.t - this.robots[index].head_prop[1]) > .5){
         broken_parts |= 1;
+      }else if (this.robots[index].head[1][3] < this.robots[index].location[1][3] - 1.3 && this.robots[index].head_prop[0] == 0) {
+        this.robots[index].head_prop[0] =  -1.7 * (this.robots[index].linear_velocity[1]- 9.8 * t);
+        this.robots[index].head_prop[1] = this.t;
       }else{
-        this.robots[index].head = top_torso_transform.times(Mat4.translation(x*.5, 2.9 + y, z));
+        let t2 = (this.t - this.robots[index].head_prop[1]) * 1.5;
+        let rebound = (-1) / 2 * 9.8 * t2 * t2 + this.robots[index].head_prop[0] * t2;
+        let y1 = this.robots[index].head_prop[1] == 0 ? y : y + rebound;
+        this.robots[index].head = top_torso_transform.times(Mat4.translation(x*.5, 2.9 + y1, z));
       }
-      if(this.robots[index].torso[1][3] < this.robots[index].location[1][3] - 1){
+
+      // torso collapse and bounce
+      if(this.robots[index].torso[1][3] < this.robots[index].location[1][3] - 1 && this.robots[index].torso_prop[0] && (this.t - this.robots[index].torso_prop[1]) > .2){
         broken_parts |= 2;
+      }else if (this.robots[index].torso[1][3] < this.robots[index].location[1][3] - 1 && this.robots[index].torso_prop[0] == 0) {
+        this.robots[index].torso_prop[0] = 2* (this.robots[index].linear_velocity[1]- 9.8 * t);
+        this.robots[index].torso_prop[1] = this.t;
       }else{
-        this.robots[index].torso = this.robots[index].location.times(Mat4.translation(-x*.5, y, -z));
+        console.log(this.robots[index]);
+        let t2 = (this.t - this.robots[index].torso_prop[1]) * 1.5;
+        let rebound = (-1) / 2 * 9.8 * t2 * t2 + this.robots[index].torso_prop[0] * t2;
+        let y2 = this.robots[index].torso_prop[1] == 0 ? y : y + rebound;
+        this.robots[index].torso = this.robots[index].location.times(Mat4.translation(-x*.5, y2 + rebound, -z));
         this.robots[index].bottom_torso = top_torso_transform.times(Mat4.rotation(Math.PI, 0, 1, 0))
           .times(Mat4.translation(0, -2.0, 0));
       }
-      if(y + 2< 0){
-        broken_parts |= 4;
+
+      //Arm collapse and bounce
+      if(this.robots[index].left_arm[1][3] < this.robots[index].location[1][3] - 1.2 && this.robots[index].arm_prop[0] && (this.t - this.robots[index].arm_prop[1]) > .2){
+        broken_parts |= 1;
+      }else if (this.robots[index].left_arm[1][3] < this.robots[index].location[1][3] - 1.2 && this.robots[index].arm_prop[0] == 0) {
+        this.robots[index].arm_prop[0] =  -1.7 * (this.robots[index].linear_velocity[1]- 9.8 * t);
+        this.robots[index].arm_prop[1] = this.t;
+      }else{
+        let t2 = (this.t - this.robots[index].arm_prop[1]) * 1.5;
+        let rebound = (-1) / 2 * 9.8 * t2 * t2 + this.robots[index].arm_prop[0] * t2;
+        let y3 = this.robots[index].arm_prop[1] == 0 ? y : y + rebound;
+        this.robots[index].left_arm = top_torso_transform.times(Mat4.translation(2+x, y3, 0)).times(Mat4.rotation(Math.PI/3, 0, 0, 1));
+        this.robots[index].left_hand = top_torso_transform.times(Mat4.translation(5.0+x, -.5+y3, 0))
+          .times(Mat4.scale(0.5, 0.5, 0.5)).times(Mat4.rotation(Math.PI/3, 0, 0, 1));
+        this.robots[index].right_arm = top_torso_transform.times(Mat4.translation(-2-x, y3, 0)).times(Mat4.rotation(Math.PI/3, 0, 0, -1));
+        this.robots[index].right_hand = top_torso_transform.times(Mat4.translation(-5-x, -.5+y3, 0))
+          .times(Mat4.scale(0.5, 0.5, 0.5)).times(Mat4.rotation(Math.PI/3, 0, 0, -1));
       }
-      else{
-        this.robots[index].left_arm = top_torso_transform.times(Mat4.translation(2+x, y, 0));
-        this.robots[index].left_hand = top_torso_transform.times(Mat4.translation(2.9+x, -2.7 + y, 0))
-          .times(Mat4.scale(0.5, 0.5, 0.5));
-        this.robots[index].right_arm = top_torso_transform.times(Mat4.translation(-2-x, y, 0));
-        this.robots[index].right_hand = top_torso_transform.times(Mat4.translation(-2.9-x, -2.7 + y, 0))
-          .times(Mat4.scale(0.5, 0.5, 0.5));
-      }
-      
       if(broken_parts == 8){
         this.robots[index].state = 2;
       }
-    }
-    // Dead
-    else if(robot_state == 2){
     }
 
     // Draw Robot at robot_center
