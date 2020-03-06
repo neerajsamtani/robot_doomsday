@@ -1,11 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="6494de0b-c0af-42da-ba30-64730a9fe94b" name="Default Changelist" comment="" />
+    <list default="true" id="6494de0b-c0af-42da-ba30-64730a9fe94b" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/project.js" beforeDir="false" afterPath="$PROJECT_DIR$/examples/project.js" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
   <component name="ProjectId" id="1Y8ZK1mONdf1xmWDSuIjWsd2Wga" />
   <component name="ProjectViewState">
@@ -15,8 +21,17 @@
   </component>
   <component name="PropertiesComponent">
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
+    <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="WebServerToolWindowFactoryState" value="false" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$/../../Project/a3-405099796" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$/assets" />
+  </component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/assets" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/assets" />
+    </key>
   </component>
   <component name="ServiceViewManager">
     <option name="viewStates">
@@ -57,6 +72,8 @@
       <workItem from="1583349803241" duration="1084000" />
       <workItem from="1583350924719" duration="119000" />
       <workItem from="1583351060263" duration="22000" />
+      <workItem from="1583368929188" duration="6756000" />
+      <workItem from="1583525284543" duration="4773000" />
     </task>
     <servers />
   </component>
@@ -68,9 +85,11 @@
       <screen x="0" y="0" width="1536" height="824" />
     </state>
     <state x="550" y="169" key="FileChooserDialogImpl/0.0.1536.824@0.0.1536.824" timestamp="1583289604455" />
-    <state x="462" y="144" width="613" height="536" key="find.popup" timestamp="1583299135459">
-      <screen x="0" y="0" width="1536" height="824" />
+    <state x="433" y="224" width="803" height="582" key="find.popup" timestamp="1583529990525">
+      <screen x="0" y="0" width="1440" height="900" />
     </state>
+    <state x="433" y="224" width="803" height="582" key="find.popup/0.0.1440.900@0.0.1440.900" timestamp="1583529990525" />
     <state x="462" y="144" width="613" height="536" key="find.popup/0.0.1536.824@0.0.1536.824" timestamp="1583299135459" />
+    <state x="433" y="167" width="803" height="582" key="find.popup/0.23.1440.822@0.23.1440.822" timestamp="1583370372389" />
   </component>
 </project>
