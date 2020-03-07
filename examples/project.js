@@ -6,22 +6,48 @@ const { Triangle, Square, Tetrahedron, Windmill, Cube, Subdivision_Sphere, Cappe
 const { vec3, vec4, vec, color, Mat4, Light, Shape, Material, Shader, Texture, Scene } = tiny;
 
 let g_dx = null, g_dy = null;
-class Robot {
+
+class Body{
   constructor(){
     this.location = 0;
     this.state = 0;
-    this.linear_velocity = [0,0,0];
-    this.time = 0;
+  }
+}
+
+class Robot extends Body {
+  constructor(){
+    super();
+   
+    this.linear_velocity = [0,0,0];   // Initial Linear Velocity - for explosion of robot
+    this.time = 0;                    // Time once start explosion to map Kinematics Properties
+    
+    // Body Part Matrix Locations
     this.torso = 0;
-    this.torso_prop = [0, 0];
     this.bottom_torso = 0;
     this.head = 0;
-    this.head_prop = [0,0]
     this.left_arm = 0;
     this.left_hand = 0;
     this.right_arm = 0;
     this.right_hand = 0;
+
+    // Body Part Properties 
+    // [1] - rebound y-velocity
+    // [2] - time of rebound (this.t at first hit of ground)
+    this.torso_prop = [0, 0];
+    this.head_prop = [0,0]
     this.arm_prop = [0,0];
+  }
+
+  intersect_sphere(p, margin = 0){
+    return p.dot(p) < 1 + margin;
+  }
+
+  check_if_colliding(target){
+    if (this == target)
+      return false;
+    const T = this.inverse.times(target.location, Mat4.identity());
+    let points = new defs.Subdivision_Sphere(2);
+    return points.arrays.position.some( p => this.intersect_sphere(T.times(p.to4(1)).to3(),10));
   }
 }
 
@@ -277,7 +303,7 @@ export class Project_Base extends Scene
                       "left_hand": new Shape_From_File( "assets/Left-Hand.obj"),
                       "right_arm": new Shape_From_File( "assets/Right-Arm.obj"),
                       "right_hand": new Shape_From_File( "assets/Right-Hand.obj"),
-                      "handgun": new Shape_From_File("assets/Handgun.obj"),
+                      //"handgun": new Shape_From_File("assets/Handgun.obj"),
                       "ground" : new Capped_Cylinder(100, 100, [[0,2],[0,1]]),
                       "skybox": new Subdivision_Sphere(4),
                       "tree_trunk": new Shape_From_File("assets/tree_trunk.obj"),
@@ -403,9 +429,9 @@ export class Project_Base extends Scene
       let z = this.robots[index].linear_velocity[2] * t;
 
       // Head collapse and bounce
-      if(this.robots[index].head[1][3] < this.robots[index].location[1][3] - 1.3 && this.robots[index].head_prop[0] && (this.t - this.robots[index].head_prop[1]) > .5){
+      if(this.robots[index].head[1][3] < this.robots[index].location[1][3] - .9 && this.robots[index].head_prop[0] && (this.t - this.robots[index].head_prop[1]) > .5){
         broken_parts |= 1;
-      }else if (this.robots[index].head[1][3] < this.robots[index].location[1][3] - 1.3 && this.robots[index].head_prop[0] == 0) {
+      }else if (this.robots[index].head[1][3] < this.robots[index].location[1][3] - .9 && this.robots[index].head_prop[0] == 0) {
         this.robots[index].head_prop[0] =  -1.7 * (this.robots[index].linear_velocity[1]- 9.8 * t);
         this.robots[index].head_prop[1] = this.t;
       }else{
@@ -422,7 +448,6 @@ export class Project_Base extends Scene
         this.robots[index].torso_prop[0] = 2* (this.robots[index].linear_velocity[1]- 9.8 * t);
         this.robots[index].torso_prop[1] = this.t;
       }else{
-        console.log(this.robots[index]);
         let t2 = (this.t - this.robots[index].torso_prop[1]) * 1.5;
         let rebound = (-1) / 2 * 9.8 * t2 * t2 + this.robots[index].torso_prop[0] * t2;
         let y2 = this.robots[index].torso_prop[1] == 0 ? y : y + rebound;
@@ -432,9 +457,9 @@ export class Project_Base extends Scene
       }
 
       //Arm collapse and bounce
-      if(this.robots[index].left_arm[1][3] < this.robots[index].location[1][3] - 1.2 && this.robots[index].arm_prop[0] && (this.t - this.robots[index].arm_prop[1]) > .2){
+      if(this.robots[index].left_arm[1][3] < this.robots[index].location[1][3] - 1.4 && this.robots[index].arm_prop[0] && (this.t - this.robots[index].arm_prop[1]) > .2){
         broken_parts |= 1;
-      }else if (this.robots[index].left_arm[1][3] < this.robots[index].location[1][3] - 1.2 && this.robots[index].arm_prop[0] == 0) {
+      }else if (this.robots[index].left_arm[1][3] < this.robots[index].location[1][3] - 1.4 && this.robots[index].arm_prop[0] == 0) {
         this.robots[index].arm_prop[0] =  -1.7 * (this.robots[index].linear_velocity[1]- 9.8 * t);
         this.robots[index].arm_prop[1] = this.t;
       }else{
@@ -526,7 +551,23 @@ export class Project extends Project_Base
 
       // Ensure player cannot move in y-space
       // context.program_state.camera_inverse = Mat4.translation(this.player_x[3], 0, this.player_z[3]);
-
+      for(let a of this.robots){
+        a.inverse = Mat4.inverse(a.location);
+        if(a.state != 0)
+          continue;
+        for(let b of this.robots){
+          console.log(b);
+          if(a != b && b.state != 0)
+            continue;
+          if(!a.check_if_colliding(b))
+            continue;
+          a.state = 1; 
+          a.time = this.t; 
+          a.linear_velocity[0] = (Math.random() + 1) * 1.2; 
+          a.linear_velocity[1] = (Math.random() + 1) * 1.2; 
+          a.linear_velocity[2] = (Math.random() + 1) * 1.2; 
+        }
+      }
       // Draw robot
       this.draw_robot(context, program_state, 0);
       this.draw_robot(context, program_state, 1);
