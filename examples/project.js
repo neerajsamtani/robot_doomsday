@@ -1,11 +1,140 @@
 import {tiny, defs} from './common.js';
 
-                                                  // Pull these names into this module's scope for convenience:
 const { Triangle, Square, Tetrahedron, Windmill, Cube, Subdivision_Sphere, Capped_Cylinder } = defs;
-// Pull these names into this module's scope for convenience:
 const { vec3, vec4, vec, color, Mat4, Light, Shape, Material, Shader, Texture, Scene } = tiny;
 
-let g_dx = null, g_dy = null;
+let g_dx = 0, g_dy = 0;
+let g_origin_offset = vec3(0, 0, 0);
+let g_world_objects = [];
+let g_cam_looking_at = vec3(NaN, NaN, NaN);
+let g_x_ccs = vec3(-1, 0, 0);
+let g_z_ccs = vec3(0, 0, -1);
+let g_z_rot = Math.PI;
+
+const FPS_Controls =
+class FPS_Controls extends defs.Movement_Controls
+{
+  constructor()
+  {
+    super();
+  }
+
+  add_mouse_controls(canvas)
+  {
+    this.mouse = { "from_center": vec( 0,0 ) };
+    const mouse_position = (e, rect = canvas.getBoundingClientRect()) =>
+        vec( e.clientX - (rect.left + rect.right)/2, e.clientY - (rect.bottom + rect.top)/2 );
+    document.addEventListener( "mouseup",   e => { this.mouse.anchor = undefined; } );
+    canvas.addEventListener( "mousedown", e => { e.preventDefault(); this.mouse.anchor = mouse_position(e); } );
+    canvas.addEventListener( "mousemove", e => { e.preventDefault(); this.mouse.from_center = mouse_position(e); } );
+    canvas.addEventListener( "mouseout",  e => { if( !this.mouse.anchor ) this.mouse.from_center.scale_by(0) } );
+
+    canvas.onclick = () => canvas.requestPointerLock();
+
+    let updatePosition = (e) => {
+      g_dx = e.movementX;
+      g_dy = e.movementY;
+    };
+
+    let lockChangeAlert = () => {
+      if (document.pointerLockElement === canvas) {
+        document.addEventListener("mousemove", updatePosition, false);
+      } else {
+        document.removeEventListener("mousemove", updatePosition, false);
+        g_dx = g_dy = 0;
+      }
+    };
+
+    document.addEventListener('pointerlockchange', lockChangeAlert, false);
+  }
+
+  // This function is called when the user executes the movement keys, i.e. WASD.
+  first_person_flyaround(radians_per_frame, meters_per_frame, leeway = 70 )
+  {
+    // We do not want the user to move up/down i.e. along the y axis. So we do not
+    // accommodate for this.thrust[1] which is the axis.
+    // The thrust values are subtracted from the g_origin_offset because we want the
+    // objects to do the opposite of what I'm doing so it looks as if the cam is moving.
+    if (this.thrust[0] !== 0) {
+      g_origin_offset[0] -= -1 * this.thrust[0] * g_x_ccs[0] * .1;
+      g_origin_offset[2] -= 1 * this.thrust[0] * g_x_ccs[2] * .1;
+    }
+    if (this.thrust[2] !== 0) {
+      g_origin_offset[0] -= 1 * this.thrust[2] * g_z_ccs[0] * .1;
+      g_origin_offset[2] -= -1 * this.thrust[2] * g_z_ccs[2] * .1;
+    }
+  }
+
+  // This function is called whenever the mouse is moved.
+  third_person_arcball(radians_per_frame)
+  {
+    // The rotation that we do depends ONLY on the mouse dx and dy, stored in the global variables.
+    let dragging_vector = vec(g_dx, g_dy).times(40);
+    // Reset the deltas so we don't keep rotating if the pointer unlocks.
+    g_dx = g_dy = 0;
+
+    if( dragging_vector.norm() <= 0 )
+      return;
+
+    // Rotate around the y axis, i.e. horizontal movement.
+    let horiz_rot;
+    if (dragging_vector[0] !== 0) {
+      let y_ccs = this.matrix().times(vec4(0, 1, 0, 0)).to3();
+      let rot_angle = radians_per_frame * dragging_vector.norm() * (dragging_vector[0] > 0 ? 1 : -1);
+      // console.log(`Y Axis in CCS: (${y_ccs[0].toFixed(2)}, ${y_ccs[1].toFixed(2)}, ${y_ccs[2].toFixed(2)})`);
+      horiz_rot = Mat4.rotation(rot_angle, y_ccs[0], y_ccs[1], y_ccs[2]);
+    }
+
+    // Report the x and z axis w.r.t. camera coordinate system.
+    g_x_ccs = this.inverse().times(vec4(1, 0, 0, 0)).to3();
+    g_z_ccs = this.inverse().times(vec4(0, 0, 1, 0)).to3();
+
+    if (horiz_rot) {
+      this.matrix().post_multiply(horiz_rot);
+      this.inverse().pre_multiply(horiz_rot);
+    }
+
+    console.log(`CamZ: (${this.matrix()[0][2].toFixed(2)},
+    ${this.matrix()[1][2].toFixed(2)},
+    ${this.matrix()[2][2].toFixed(2)})`);
+
+    // Change sign of z component because we are looking down the negative z axis.
+    let cam = this.inverse();
+    g_cam_looking_at = vec3(cam[0][2], cam[1][2], cam[2][2] * -1);
+
+    // Compute angle of rotation between z axis and what I'm looking at.
+    // g_z_rot = Math.acos(vec3(0, 0, 1).dot((vec3(...g_z_ccs))));
+    // https://math.stackexchange.com/questions/654315/how-to-convert-a-dot-product-of-two-vectors-to-the-angle-between-the-vectors
+    let z_angle= Math.atan2(g_z_ccs[2], g_z_ccs[0]) - Math.atan2(1, 0);
+    g_z_rot = z_angle;
+  }
+
+  display(context, graphics_state, dt = graphics_state.animation_delta_time / 1000)
+  {
+    const m = this.speed_multiplier * this.meters_per_frame;
+    const r = this.speed_multiplier * this.radians_per_frame;
+
+    if (this.will_take_over_graphics_state)
+    {
+      this.reset(graphics_state);
+      this.will_take_over_graphics_state = false;
+    }
+    if (!this.mouse_enabled_canvases.has(context.canvas))
+    {
+      this.add_mouse_controls(context.canvas);
+      this.mouse_enabled_canvases.add(context.canvas);
+    }
+
+    this.first_person_flyaround(dt * r, dt * m);
+
+    // We only want to move our view if we are locked into the canvas.
+    if (!this.mouse.anchor)
+      this.third_person_arcball(dt * r);
+
+    this.pos = this.inverse().times(vec4(0, 0, 0, 1));
+    this.z_axis = this.inverse().times(vec4(0, 0, 1, 0));
+  }
+};
 
 class Body{
   constructor(){
@@ -143,145 +272,6 @@ export class Shape_From_File extends Shape
   }
 }
 
-const FPS_Controls =
-class FPS_Controls extends defs.Movement_Controls
-{
-  // Extending the defs.Movement_Controls class will allow us to create custom controls, e.g. with a
-  // FPS camera with a pointer lock whose rotation depends on the mouse deltas.
-  constructor()
-  {
-    super();
-  }
-
-  add_mouse_controls(canvas)
-  {
-    // This code block is simply copy and pasted from the base defs.Movement_Controls class.
-    this.mouse = { "from_center" : vec(0, 0) };
-    const mouse_position = (e, rect = canvas.getBoundingClientRect()) =>
-        vec( e.clientX - (rect.left + rect.right)/2, e.clientY - (rect.bottom + rect.top)/2 );
-    document.addEventListener( "mouseup",   e => { this.mouse.anchor = undefined; } );
-    canvas.addEventListener( "mousedown", e => { e.preventDefault(); this.mouse.anchor = mouse_position(e); } );
-    canvas.addEventListener( "mousemove", e => { e.preventDefault(); this.mouse.from_center = mouse_position(e); } );
-    canvas.addEventListener( "mouseout",  e => { if( !this.mouse.anchor ) this.mouse.from_center.scale_by(0) } );
-
-    // Make the canvas lock the pointer when the player clicks on it.
-    canvas.onclick = () => canvas.requestPointerLock();
-
-    // Update global variables which will be used to calculate the view rotation.
-    let updatePosition = (e) => {
-      g_dx = e.movementX;
-      g_dy = e.movementY;
-    }
-
-    // Make it so that the global variables are updated only when our mouse is "in" the canvas.
-    let lockChangeAlert = () => {
-      if (document.pointerLockElement === canvas) {
-        document.addEventListener("mousemove", updatePosition, false);
-      } else {
-        document.removeEventListener("mousemove", updatePosition, false);
-        g_dx = g_dy = 0;
-      }
-    }
-
-    // Make it so that the previous function is called each time we lock/unlock.
-    document.addEventListener("pointerlockchange", lockChangeAlert, false);
-  }
-
-  first_person_flyaround( radians_per_frame, meters_per_frame, leeway = 70 )
-  {
-    const offsets_from_dead_box = { plus: [ this.mouse.from_center[0] + leeway, this.mouse.from_center[1] + leeway ],
-      minus: [ this.mouse.from_center[0] - leeway, this.mouse.from_center[1] - leeway ] };
-
-    if( !this.look_around_locked )
-      for( let i = 0; i < 2; i++ )
-      {
-        let o = offsets_from_dead_box,
-            velocity = ( ( o.minus[i] > 0 && o.minus[i] ) || ( o.plus[i] < 0 && o.plus[i] ) ) * radians_per_frame;
-        this.matrix().post_multiply( Mat4.rotation( -velocity,   i, 1-i, 0 ) );
-        this.inverse().pre_multiply( Mat4.rotation( +velocity,   i, 1-i, 0 ) );
-      }
-    this.matrix().post_multiply( Mat4.rotation( -.1 * this.roll,   0,0,1 ) );
-    this.inverse().pre_multiply( Mat4.rotation( +.1 * this.roll,   0,0,1 ) );
-
-    this.matrix().post_multiply( Mat4.translation( ...this.thrust.times( -meters_per_frame ) ) );
-    this.inverse().pre_multiply( Mat4.translation( ...this.thrust.times( +meters_per_frame ) ) );
-  }
-
-  third_person_arcball(radians_per_frame)
-  {
-    // The rotation that we do depends ONLY on the mouse dx and dy, stored in the global variables.
-    let dragging_vector = vec(g_dx, g_dy).times(20);
-    // Reset the deltas so we don't keep rotating if the pointer unlocks.
-    g_dx = g_dy = 0;
-
-    // Sanity checks.
-    if( dragging_vector.norm() <= 0 )
-      return;
-
-    // We need to prevent the "rolling" along the z axis which happens despite only specifying rotations
-    // along the x and y axes. To fix this we will always rotate g_dx with respect to the local x axis but always
-    // rotate the g_dy with respect the world's y axis, the vector (0, 1, 0).
-    // https://gamedev.stackexchange.com/questions/103242/why-is-the-camera-tilting-around-the-z-axis-when-i-only-specified-x-and-y
-
-    // Rotate around local x axis.
-    let rot1 = undefined, rot2 = undefined;
-    if (dragging_vector[1] != 0) {
-      rot1 = Mat4.rotation(radians_per_frame * dragging_vector.norm(), dragging_vector[1], 0, 0);
-    }
-    // Rotate around world's y axis.
-    if (dragging_vector[0] != 0) {
-      let y_ccs = this.matrix().times(vec4(0, 1, 0, 0)).to3();
-      let rot_angle = radians_per_frame * dragging_vector.norm() * (dragging_vector[0] > 0 ? 1 : -1);
-      console.log(`Y Axis in CCS: (${y_ccs[0].toFixed(2)}, ${y_ccs[1].toFixed(2)}, ${y_ccs[2].toFixed(2)})`);
-      rot2 = Mat4.rotation(rot_angle, y_ccs[0], y_ccs[1], y_ccs[2]);
-    }
-
-    // So for right now, I can't seem to get it to rotate properly without z rolling, so I simply
-    // disabled the ability to rotate around the x axis, so now we only rotate on the y axis.
-    // if (rot1) {
-    //   this.matrix().post_multiply(rot1);
-    //   this.inverse().pre_multiply(rot1);
-    // }
-    if (rot2) {
-      this.matrix().post_multiply(rot2);
-      this.inverse().pre_multiply(rot2);
-    }
-
-    const rotation = Mat4.rotation(radians_per_frame * dragging_vector.norm(), dragging_vector[1], dragging_vector[0], 0 );
-
-    // Apply the rotation matrix to the camera and its inverse.
-    // this.matrix().post_multiply(rotation);
-    // this.inverse().pre_multiply(rotation);
-  }
-
-  display(context, graphics_state, dt = graphics_state.animation_delta_time / 1000)
-  {
-    const m = this.speed_multiplier * this.meters_per_frame;
-    const r = this.speed_multiplier * this.radians_per_frame;
-
-    if (this.will_take_over_graphics_state)
-    {
-      this.reset(graphics_state);
-      this.will_take_over_graphics_state = false;
-    }
-    if (!this.mouse_enabled_canvases.has(context.canvas))
-    {
-      this.add_mouse_controls(context.canvas);
-      this.mouse_enabled_canvases.add(context.canvas);
-    }
-
-    this.first_person_flyaround(dt * r, dt * m);
-
-    // We only want to move our view if we are locked into the canvas.
-    if (!this.mouse.anchor)
-      this.third_person_arcball(dt * r);
-
-    this.pos = this.inverse().times(vec4(0, 0, 0, 1));
-    this.z_axis = this.inverse().times(vec4(0, 0, 1, 0));
-  }
-}
-
-
 export class Project_Base extends Scene
 {                                          // **Transforms_Sandbox_Base** is a Scene that can be added to any display canvas.
                                            // This particular scene is broken up into two pieces for easier understanding.
@@ -308,11 +298,13 @@ export class Project_Base extends Scene
                       "skybox": new Subdivision_Sphere(4),
                       "tree_trunk": new Shape_From_File("assets/tree_trunk.obj"),
                       "tree_leaves": new Shape_From_File("assets/tree_leaves.obj"),
-                      "rock" : new Shape_From_File("assets/rock.obj")};
+                      "rock" : new Shape_From_File("assets/rock.obj"),
+                      "pistol" : new Shape_From_File("assets/pistol.obj")
+      };
 
       this.shapes.ground.arrays.texture_coord.forEach( p => p.scale_by(50));
       const phong = new defs.Phong_Shader();
-      const textured = new defs.Textured_Phong( 1 )
+      const textured = new defs.Textured_Phong( 1 );
       this.materials = { plastic: new Material( phong,
                                     { ambient: .2, diffusivity: 1, specularity: .5, color: color( .9,.5,.9,1 ) } ),
                         metal: new Material( phong,
@@ -325,8 +317,8 @@ export class Project_Base extends Scene
                         tree_trunk: new Material(phong, {ambient: .2, diffusivity: 1, specularity: .5, color: color(0.9, 0.4, 0.1, 1)}),
                         rock: new Material(phong, {ambient: .2, diffusivity: 1, specularity: 0.5, color: color(0.9, 0.9, 0.9, 1)})};
 
-      this.random_x = []
-      this.random_z = []
+      this.random_x = [];
+      this.random_z = [];
       for(var i = 0; i < 15; i+= 1){
         var R = 48 * Math.random();
         var theta = Math.random() * 2 * Math.PI;
@@ -345,6 +337,24 @@ export class Project_Base extends Scene
       this.key_triggered_button( "Hover dragonfly in place", [ "h" ], function() { this.hover ^= 1; } );
       this.new_line();
       this.key_triggered_button( "Swarm mode", [ "m" ], function() { this.swarm ^= 1; } );
+
+      this.new_line();
+      this.live_string(box => { box.textContent =
+          `Cam Looking At: (${g_cam_looking_at[0].toFixed(2)},
+          ${g_cam_looking_at[1].toFixed(2)}, ${g_cam_looking_at[2].toFixed(2)})`; });
+      this.new_line();
+      this.live_string( box => { box.textContent = `World Offset: (${g_origin_offset[0].toFixed(2)}, ${g_origin_offset[1].toFixed(2)}, ${g_origin_offset[2].toFixed(2)})`; });
+      this.new_line();
+      if (g_x_ccs.every(x => x !== NaN)) {
+        this.live_string( box => { box.textContent = `X CCS: (${g_x_ccs[0].toFixed(2)}, ${g_x_ccs[1].toFixed(2)}, ${g_x_ccs[2].toFixed(2)})`; });
+      }
+      this.new_line();
+      if (g_z_ccs.every(x => x !== NaN)) {
+        this.live_string( box => { box.textContent = `Z CCS: (${g_z_ccs[0].toFixed(2)}, ${g_z_ccs[1].toFixed(2)}, ${g_z_ccs[2].toFixed(2)})`; });
+      }
+      this.new_line();
+      this.live_string ( box => { box.textContent = `Z Angle: ${g_z_rot.toFixed(4)}`; });
+
       this.robot_kill = 0;
       this.key_triggered_button( "Kill first robot", [ "m" ], function() { this.robots[this.robot_kill].state = 1; 
                                                                             this.robots[this.robot_kill].time = this.t; 
@@ -361,8 +371,10 @@ export class Project_Base extends Scene
       // We do it here instead of the constructor above so that we have access to context and program state
       if( !context.scratchpad.controls )
         {
-          this.children.push( context.scratchpad.controls = new FPS_Controls() );
-          program_state.set_camera( Mat4.translation( 0,0,0 ) );
+          // this.children.push( context.scratchpad.controls = new defs.Movement_Controls() );
+          this.children.push(context.scratchpad.controls = new FPS_Controls());
+          // program_state.set_camera( Mat4.translation( 0,0,0 ) );
+          program_state.set_camera(Mat4.look_at(vec3(0, 0, 0), vec3(0, 0, 1), vec3(0, 1, 0)));
 
           // Get player location
           this.player_x = context.program_state.camera_inverse[0];
@@ -500,23 +512,40 @@ export class Project_Base extends Scene
   //Function to draw trees randomly in the environment
   draw_trees(context, program_state, model_transform){
     for(var i = 0; i < 15; i+= 1){
-      this.shapes.tree_trunk.draw(context, program_state, model_transform.times(Mat4.translation(this.random_x[i], 0.5, this.random_z[i])), this.materials.tree_trunk);
-      this.shapes.tree_leaves.draw(context, program_state, model_transform.times(Mat4.translation(this.random_x[i], 1.4, this.random_z[i])), this.materials.tree_leaves);
+      this.shapes.tree_trunk.draw(context, program_state, model_transform
+          .times(Mat4.translation(...g_origin_offset))
+          .times(Mat4.translation(this.random_x[i], 0.5, this.random_z[i])), this.materials.tree_trunk);
+      this.shapes.tree_leaves.draw(context, program_state, model_transform
+          .times(Mat4.translation(...g_origin_offset))
+          .times(Mat4.translation(this.random_x[i], 1.4, this.random_z[i])), this.materials.tree_leaves);
     }
   }
 
-  //Function to draw the environment
-  draw_environment(context, program_state, model_transform){
-    this.shapes.ground.draw(context, program_state, model_transform.times(Mat4.rotation(Math.PI/2, 1, 0, 0)).times(Mat4.translation(0, 0, 2)).times(Mat4.scale(50, 50, 0.5)), this.materials.ground);
-    this.shapes.skybox.draw(context, program_state, model_transform.times(Mat4.rotation(Math.PI/2, 1, 0, 0)).times(Mat4.scale(60, 60, 60)), this.materials.sky);
-    //this.draw_tree(context, program_state, model_transform);
+  // The new version of the function will also translate according to the world offset, which
+  // is a (x, y, z) tuple which will help us to make it look like the player is moving, but
+  // in actuality, the world is the one moving. This is done to make computations easier.
+  draw_environment(context, program_state, model_transform) {
+    this.shapes.ground.draw(context, program_state, model_transform
+        .times(Mat4.translation(...g_origin_offset))
+        .times(Mat4.rotation(Math.PI/2, 1, 0, 0))
+        .times(Mat4.translation(0, 0, 2))
+        .times(Mat4.scale(50, 50, 0.5)), this.materials.ground);
+    this.shapes.skybox.draw(context, program_state, model_transform
+        .times(Mat4.translation(...g_origin_offset))
+        .times(Mat4.rotation(Math.PI/2, 1, 0, 0))
+        .times(Mat4.scale(60, 60, 60)), this.materials.sky);
     this.draw_trees(context, program_state, model_transform);
-    this.shapes.rock.draw(context, program_state, model_transform.times(Mat4.translation(0, -1, 0)), this.materials.rock);
-    this.shapes.rock.draw(context, program_state, model_transform.times(Mat4.translation(10, -1, 15)), this.materials.rock);
-    this.shapes.rock.draw(context, program_state, model_transform.times(Mat4.translation(17, -1, 33)), this.materials.rock);
+    this.shapes.rock.draw(context, program_state, model_transform
+        .times(Mat4.translation(...g_origin_offset))
+        .times(Mat4.translation(0, -1, 0)), this.materials.rock);
+    this.shapes.rock.draw(context, program_state, model_transform
+        .times(Mat4.translation(...g_origin_offset))
+        .times(Mat4.translation(10, -1, 15)), this.materials.rock);
+    this.shapes.rock.draw(context, program_state, model_transform
+        .times(Mat4.translation(...g_origin_offset))
+        .times(Mat4.translation(17, -1, 33)), this.materials.rock);
   }
 }
-
 
 export class Project extends Project_Base
 {
@@ -569,6 +598,7 @@ export class Project extends Project_Base
           a.linear_velocity[2] = (Math.random() + 1) * 1.2; 
         }
       }
+
       // Draw robot
       this.draw_robot(context, program_state, 0);
       this.draw_robot(context, program_state, 1);
@@ -576,5 +606,15 @@ export class Project extends Project_Base
       // Draw environment
       this.draw_environment(context, program_state, model_transform);
 
+      // let cube_transform = Mat4.identity().times(Mat4.rotation(g_z_rot, 0, 1, 0)).times(Mat4.translation(0, 0, -5));
+      let pistol_transform = Mat4.identity()
+          .times(Mat4.rotation(g_z_rot, 0, 1, 0))
+          .times(Mat4.translation(1.5, -1, -3))
+          .times(Mat4.rotation(5 * Math.PI / 8, 0, 1, 0))
+          .times(Mat4.rotation(Math.PI / 2, 1, 0, 0))
+          .times(Mat4.scale(.4, .4, .4));
+      this.shapes.pistol.draw(context, program_state, pistol_transform,
+          this.materials.metal.override( { color: [128/255, 128/255, 128/255, 1] }));
+      // this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.translation(3, 0, 0)), this.materials.plastic);
     }
 }
