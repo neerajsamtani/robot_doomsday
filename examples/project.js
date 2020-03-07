@@ -1,16 +1,14 @@
 import {tiny, defs} from './common.js';
 
-                                                  // Pull these names into this module's scope for convenience:
 const { Triangle, Square, Tetrahedron, Windmill, Cube, Subdivision_Sphere, Capped_Cylinder } = defs;
-// Pull these names into this module's scope for convenience:
 const { vec3, vec4, vec, color, Mat4, Light, Shape, Material, Shader, Texture, Scene } = tiny;
 
 let g_dx = 0, g_dy = 0;
 let g_origin_offset = vec3(0, 0, 0);
 let g_world_objects = [];
 let g_cam_looking_at = vec3(NaN, NaN, NaN);
-let g_x_ccs = vec3(NaN, NaN, NaN);
-let g_z_ccs = vec3(NaN, NaN, NaN);
+let g_x_ccs = vec3(-1, 0, 0);
+let g_z_ccs = vec3(0, 0, -1);
 let g_z_rot = Math.PI;
 
 const FPS_Controls =
@@ -31,8 +29,6 @@ class FPS_Controls extends defs.Movement_Controls
     canvas.addEventListener( "mousemove", e => { e.preventDefault(); this.mouse.from_center = mouse_position(e); } );
     canvas.addEventListener( "mouseout",  e => { if( !this.mouse.anchor ) this.mouse.from_center.scale_by(0) } );
 
-    document.exitPointerLock = document.exitPointerLock;
-
     canvas.onclick = () => canvas.requestPointerLock();
 
     let updatePosition = (e) => {
@@ -52,7 +48,7 @@ class FPS_Controls extends defs.Movement_Controls
     document.addEventListener('pointerlockchange', lockChangeAlert, false);
   }
 
-  // This function is called when the user executes the movement keys, e.g. WASD.
+  // This function is called when the user executes the movement keys, i.e. WASD.
   first_person_flyaround(radians_per_frame, meters_per_frame, leeway = 70 )
   {
     // We do not want the user to move up/down i.e. along the y axis. So we do not
@@ -60,9 +56,12 @@ class FPS_Controls extends defs.Movement_Controls
     // The thrust values are subtracted from the g_origin_offset because we want the
     // objects to do the opposite of what I'm doing so it looks as if the cam is moving.
     if (this.thrust[0] !== 0) {
-      g_origin_offset[0] -= this.thrust[0] * .1;
-    } else if (this.thrust[2] !== 0) {
-      g_origin_offset[2] -= this.thrust[2] * .1;
+      g_origin_offset[0] -= -1 * this.thrust[0] * g_x_ccs[0] * .1;
+      g_origin_offset[2] -= 1 * this.thrust[0] * g_x_ccs[2] * .1;
+    }
+    if (this.thrust[2] !== 0) {
+      g_origin_offset[0] -= 1 * this.thrust[2] * g_z_ccs[0] * .1;
+      g_origin_offset[2] -= -1 * this.thrust[2] * g_z_ccs[2] * .1;
     }
   }
 
@@ -389,20 +388,38 @@ export class Project_Base extends Scene
   //Function to draw trees randomly in the environment
   draw_trees(context, program_state, model_transform){
     for(var i = 0; i < 15; i+= 1){
-      this.shapes.tree_trunk.draw(context, program_state, model_transform.times(Mat4.translation(this.random_x[i], 0.5, this.random_z[i])), this.materials.tree_trunk);
-      this.shapes.tree_leaves.draw(context, program_state, model_transform.times(Mat4.translation(this.random_x[i], 1.4, this.random_z[i])), this.materials.tree_leaves);
+      this.shapes.tree_trunk.draw(context, program_state, model_transform
+          .times(Mat4.translation(...g_origin_offset))
+          .times(Mat4.translation(this.random_x[i], 0.5, this.random_z[i])), this.materials.tree_trunk);
+      this.shapes.tree_leaves.draw(context, program_state, model_transform
+          .times(Mat4.translation(...g_origin_offset))
+          .times(Mat4.translation(this.random_x[i], 1.4, this.random_z[i])), this.materials.tree_leaves);
     }
   }
 
-  //Function to draw the environment
-  draw_environment(context, program_state, model_transform){
-    this.shapes.ground.draw(context, program_state, model_transform.times(Mat4.rotation(Math.PI/2, 1, 0, 0)).times(Mat4.translation(0, 0, 2)).times(Mat4.scale(50, 50, 0.5)), this.materials.ground);
-    this.shapes.skybox.draw(context, program_state, model_transform.times(Mat4.rotation(Math.PI/2, 1, 0, 0)).times(Mat4.scale(60, 60, 60)), this.materials.sky);
-    //this.draw_tree(context, program_state, model_transform);
+  // The new version of the function will also translate according to the world offset, which
+  // is a (x, y, z) tuple which will help us to make it look like the player is moving, but
+  // in actuality, the world is the one moving. This is done to make computations easier.
+  draw_environment(context, program_state, model_transform) {
+    this.shapes.ground.draw(context, program_state, model_transform
+        .times(Mat4.translation(...g_origin_offset))
+        .times(Mat4.rotation(Math.PI/2, 1, 0, 0))
+        .times(Mat4.translation(0, 0, 2))
+        .times(Mat4.scale(50, 50, 0.5)), this.materials.ground);
+    this.shapes.skybox.draw(context, program_state, model_transform
+        .times(Mat4.translation(...g_origin_offset))
+        .times(Mat4.rotation(Math.PI/2, 1, 0, 0))
+        .times(Mat4.scale(60, 60, 60)), this.materials.sky);
     this.draw_trees(context, program_state, model_transform);
-    this.shapes.rock.draw(context, program_state, model_transform.times(Mat4.translation(0, -1, 0)), this.materials.rock);
-    this.shapes.rock.draw(context, program_state, model_transform.times(Mat4.translation(10, -1, 15)), this.materials.rock);
-    this.shapes.rock.draw(context, program_state, model_transform.times(Mat4.translation(17, -1, 33)), this.materials.rock);
+    this.shapes.rock.draw(context, program_state, model_transform
+        .times(Mat4.translation(...g_origin_offset))
+        .times(Mat4.translation(0, -1, 0)), this.materials.rock);
+    this.shapes.rock.draw(context, program_state, model_transform
+        .times(Mat4.translation(...g_origin_offset))
+        .times(Mat4.translation(10, -1, 15)), this.materials.rock);
+    this.shapes.rock.draw(context, program_state, model_transform
+        .times(Mat4.translation(...g_origin_offset))
+        .times(Mat4.translation(17, -1, 33)), this.materials.rock);
   }
 }
 
@@ -451,8 +468,8 @@ export class Project extends Project_Base
       // let cube_transform = Mat4.identity().times(Mat4.rotation(g_z_rot, 0, 1, 0)).times(Mat4.translation(0, 0, -5));
       let pistol_transform = Mat4.identity()
           .times(Mat4.rotation(g_z_rot, 0, 1, 0))
-          .times(Mat4.translation(1.75, -.8, -3))
-          .times(Mat4.rotation(2 * Math.PI / 3, 0, 1, 0))
+          .times(Mat4.translation(1.5, -1, -3))
+          .times(Mat4.rotation(5 * Math.PI / 8, 0, 1, 0))
           .times(Mat4.rotation(Math.PI / 2, 1, 0, 0))
           .times(Mat4.scale(.4, .4, .4));
       this.shapes.pistol.draw(context, program_state, pistol_transform,
