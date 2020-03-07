@@ -105,6 +105,7 @@ class FPS_Controls extends defs.Movement_Controls
 
     // Compute angle of rotation between z axis and what I'm looking at.
     // g_z_rot = Math.acos(vec3(0, 0, 1).dot((vec3(...g_z_ccs))));
+    // https://math.stackexchange.com/questions/654315/how-to-convert-a-dot-product-of-two-vectors-to-the-angle-between-the-vectors
     let z_angle= Math.atan2(g_z_ccs[2], g_z_ccs[0]) - Math.atan2(1, 0);
     g_z_rot = z_angle;
   }
@@ -252,7 +253,9 @@ export class Project_Base extends Scene
                       "skybox": new Subdivision_Sphere(4),
                       "tree_trunk": new Shape_From_File("assets/tree_trunk.obj"),
                       "tree_leaves": new Shape_From_File("assets/tree_leaves.obj"),
-                      "rock" : new Shape_From_File("assets/rock.obj")};
+                      "rock" : new Shape_From_File("assets/rock.obj"),
+                      "pistol" : new Shape_From_File("assets/pistol.obj")
+      };
 
       this.shapes.ground.arrays.texture_coord.forEach( p => p.scale_by(50));
       const phong = new defs.Phong_Shader();
@@ -445,8 +448,15 @@ export class Project extends Project_Base
       // Draw environment
       this.draw_environment(context, program_state, model_transform);
 
-      let cube_transform = Mat4.identity().times(Mat4.rotation(g_z_rot, 0, 1, 0)).times(Mat4.translation(0, 0, -5));
-      this.shapes.box.draw(context, program_state, cube_transform, this.materials.plastic);
+      // let cube_transform = Mat4.identity().times(Mat4.rotation(g_z_rot, 0, 1, 0)).times(Mat4.translation(0, 0, -5));
+      let pistol_transform = Mat4.identity()
+          .times(Mat4.rotation(g_z_rot, 0, 1, 0))
+          .times(Mat4.translation(1.75, -.8, -3))
+          .times(Mat4.rotation(2 * Math.PI / 3, 0, 1, 0))
+          .times(Mat4.rotation(Math.PI / 2, 1, 0, 0))
+          .times(Mat4.scale(.4, .4, .4));
+      this.shapes.pistol.draw(context, program_state, pistol_transform,
+          this.materials.metal.override( { color: [128/255, 128/255, 128/255, 1] }));
       // this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.translation(3, 0, 0)), this.materials.plastic);
     }
 }
