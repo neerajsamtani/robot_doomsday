@@ -352,6 +352,7 @@ export class Project_Base extends Scene
                                                                             this.robots[this.robot_kill].linear_velocity[1] = (Math.random() + 1) * 1.2; 
                                                                             this.robots[this.robot_kill].linear_velocity[2] = (Math.random() + 1) * 1.2; 
                                                                             this.robot_kill += 1; } );
+      this.key_triggered_button("switch time of day", ["n"], function ()  {})
     }
 
   display( context, program_state )
@@ -376,9 +377,9 @@ export class Project_Base extends Scene
           this.robots.push(robot2);
           let robot3 = new Robot();
           this.robots.push(robot3);
-          this.robots[0].location = Mat4.identity().times(Mat4.translation(0,0,-25)).times(Mat4.scale(0.5, 0.5, 0.5));
-          this.robots[1].location = Mat4.identity().times(Mat4.translation(10,0,-45)).times(Mat4.scale(0.5, 0.5, 0.5));
-          this.robots[2].location = Mat4.identity().times(Mat4.translation(-10,0,-45)).times(Mat4.scale(0.5, 0.5, 0.5));
+          this.robots[0].location = Mat4.identity().times(Mat4.translation(0,0.3,-25)).times(Mat4.scale(0.5, 0.5, 0.5));
+          this.robots[1].location = Mat4.identity().times(Mat4.translation(10,0.3,-45)).times(Mat4.scale(0.5, 0.5, 0.5));
+          this.robots[2].location = Mat4.identity().times(Mat4.translation(-10,0.3,-45)).times(Mat4.scale(0.5, 0.5, 0.5));
           //  0 means alive - 1 means animate collapse - 2 means stay collapsed
         }
 
