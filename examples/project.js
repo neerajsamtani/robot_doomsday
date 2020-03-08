@@ -1,7 +1,7 @@
 import {tiny, defs} from './common.js';
 
                                                   // Pull these names into this module's scope for convenience:
-const { Triangle, Square, Tetrahedron, Windmill, Cube, Subdivision_Sphere, Capped_Cylinder } = defs;
+const { Triangle, Square, Tetrahedron, Windmill, Cube, Subdivision_Sphere, Capped_Cylinder, Grid_Patch } = defs;
 // Pull these names into this module's scope for convenience:
 const { vec3, vec4, vec, color, Mat4, Light, Shape, Material, Shader, Texture, Scene } = tiny;
 
@@ -268,6 +268,9 @@ export class Project_Base extends Scene
       super();
       this.robots = [];
       this.hover = this.swarm = false;
+      const initial_corner_point = vec3( -10,-10,0 );
+      const row_operation = (s,p) => p ? Mat4.translation( 0,.08,0 ).times(p.to4(10)).to3() : initial_corner_point;
+      const column_operation = (t,p) =>  Mat4.translation( .08,0,0 ).times(p.to4(10)).to3();
       this.shapes = { 'box'  : new Cube(),
                       'ball' : new Subdivision_Sphere( 4 ),
                       "head": new Shape_From_File( "assets/Head.obj"),
@@ -277,16 +280,18 @@ export class Project_Base extends Scene
                       "left_hand": new Shape_From_File( "assets/Left-Hand.obj"),
                       "right_arm": new Shape_From_File( "assets/Right-Arm.obj"),
                       "right_hand": new Shape_From_File( "assets/Right-Hand.obj"),
-                      "handgun": new Shape_From_File("assets/Handgun.obj"),
+                      //"handgun": new Shape_From_File("assets/Handgun.obj"),
                       "ground" : new Capped_Cylinder(100, 100, [[0,2],[0,1]]),
                       "skybox": new Subdivision_Sphere(4),
                       "tree_trunk": new Shape_From_File("assets/tree_trunk.obj"),
                       "tree_leaves": new Shape_From_File("assets/tree_leaves.obj"),
-                      "rock" : new Shape_From_File("assets/rock.obj")};
+                      "rock" : new Shape_From_File("assets/rock.obj"),
+                      "pond" : new defs.Grid_Patch( 10, 10, row_operation, column_operation ),
+                      "wall" : new Cube()};
 
       this.shapes.ground.arrays.texture_coord.forEach( p => p.scale_by(50));
       const phong = new defs.Phong_Shader();
-      const textured = new defs.Textured_Phong( 1 )
+      const textured = new defs.Textured_Phong( 1 );
       this.materials = { plastic: new Material( phong,
                                     { ambient: .2, diffusivity: 1, specularity: .5, color: color( .9,.5,.9,1 ) } ),
                         metal: new Material( phong,
@@ -297,15 +302,18 @@ export class Project_Base extends Scene
                         sky: new Material( textured, { ambient: 1, specularity: 0.2, texture: new Texture( "assets/sky.jpg" ), color: color( 0,0,0,1 )}),
                         tree_leaves: new Material(phong, { ambient: .2, diffusivity: 1, specularity: .5, color: color( 0, 0.9, .1,1 ) } ),
                         tree_trunk: new Material(phong, {ambient: .2, diffusivity: 1, specularity: .5, color: color(0.9, 0.4, 0.1, 1)}),
-                        rock: new Material(phong, {ambient: .2, diffusivity: 1, specularity: 0.5, color: color(0.9, 0.9, 0.9, 1)})};
+                        rock: new Material(textured, {ambient: 1, specularity: 1, texture: new Texture( "assets/rock.png" ), color: color(0, 0, 0, 1)}),
+                        water: new Material(textured, {ambient: 0.7, specularity: 1, texture: new Texture("assets/water.jpg"), color: color( 0,0,0,1 )})};
 
       this.random_x = []
       this.random_z = []
-      for(var i = 0; i < 15; i+= 1){
-        var R = 48 * Math.random();
-        var theta = Math.random() * 2 * Math.PI;
+      var theta = 0;
+      for(var i = 0; i < 36; i+= 1){
+        var R = 18 + 28 * Math.random();
+        var theta = Math.random() * 0.174533 + theta;
         this.random_x.push(R*Math.cos(theta));
         this.random_z.push(R*Math.sin(theta));
+        theta += 0.174533
       }
     }
   make_control_panel()
@@ -463,32 +471,43 @@ export class Project_Base extends Scene
     this.shapes.right_arm.draw( context, program_state, this.robots[index].right_arm, this.materials.robot_texture);
     this.shapes.right_hand.draw( context, program_state, this.robots[index].right_hand, this.materials.robot_texture);
   }
-  /*
-  draw_tree(context, program_state, model_transform){
-    for(var theta = 0; theta < 2*Math.PI; theta+=0.1){
-      this.shapes.tree_trunk.draw(context, program_state, model_transform.times(Mat4.translation(48*Math.cos(theta), 0.5, 48*Math.sin(theta))), this.materials.plastic);
-      this.shapes.tree_leaves.draw(context, program_state, model_transform.times(Mat4.translation(48*Math.cos(theta), 1.4, 48*Math.sin(theta))), this.materials.tree_leaves);
+
+  //Function to draw the rocks
+  draw_trees(context, program_state, model_transform){
+    for(var i = 0; i < 36; i+= 1) {
+      if (i % 2 == 0) {
+        this.shapes.tree_trunk.draw(context, program_state, model_transform.times(Mat4.translation(this.random_x[i], 0.5, this.random_z[i])), this.materials.tree_trunk);
+        this.shapes.tree_leaves.draw(context, program_state, model_transform.times(Mat4.translation(this.random_x[i], 1.4, this.random_z[i])), this.materials.tree_leaves);
+      }else{
+        this.shapes.rock.draw(context, program_state, model_transform.times(Mat4.translation(this.random_x[i], -1, this.random_z[i])), this.materials.rock);
+      }
     }
   }
- */
 
-  //Function to draw trees randomly in the environment
-  draw_trees(context, program_state, model_transform){
-    for(var i = 0; i < 15; i+= 1){
-      this.shapes.tree_trunk.draw(context, program_state, model_transform.times(Mat4.translation(this.random_x[i], 0.5, this.random_z[i])), this.materials.tree_trunk);
-      this.shapes.tree_leaves.draw(context, program_state, model_transform.times(Mat4.translation(this.random_x[i], 1.4, this.random_z[i])), this.materials.tree_leaves);
-    }
+  //Function to draw the pond
+  draw_pond(context, program_state, model_transform){
+    //Draw water
+    this.r = Mat4.identity().times(Mat4.rotation(Math.PI/2, 1, 0, 0)).times(Mat4.translation(0, 0, 1.7));
+    const random = ( x ) => Math.sin( 1000*x + program_state.animation_time/100 );
+    this.shapes.pond.arrays.position.forEach( (p,i,a) =>
+        a[i] = vec3( p[0], p[1], .15*random( i/a.length ) ) );
+    this.shapes.pond.flat_shade();
+    this.shapes.pond.draw( context, program_state, this.r, this.materials.water );
+    this.shapes.pond.copy_onto_graphics_card( context.context, ["position","normal"], false );
+
+    //Draw walls
+    this.shapes.wall.draw(context, program_state, model_transform.times(Mat4.scale(4, 0.5, 0.2)).times(Mat4.translation(-1.5, -4.0, -9.8)), this.materials.rock);
+    this.shapes.wall.draw(context, program_state, model_transform.times(Mat4.rotation(Math.PI/2, 0, 1, 0)).times(Mat4.scale(4, 0.5, 0.2)).times(Mat4.translation(1.44, -4.0, -9)), this.materials.rock);
+    this.shapes.wall.draw(context, program_state, model_transform.times(Mat4.scale(4.2, 0.5, 0.2)).times(Mat4.translation(-1.4, -4.0, -49.8)), this.materials.rock);
+    this.shapes.wall.draw(context, program_state, model_transform.times(Mat4.rotation(Math.PI/2, 0, 1, 0)).times(Mat4.scale(4, 0.5, 0.2)).times(Mat4.translation(1.44, -4.0, -49.5)), this.materials.rock);
   }
 
   //Function to draw the environment
   draw_environment(context, program_state, model_transform){
-    this.shapes.ground.draw(context, program_state, model_transform.times(Mat4.rotation(Math.PI/2, 1, 0, 0)).times(Mat4.translation(0, 0, 2)).times(Mat4.scale(50, 50, 0.5)), this.materials.ground);
+    this.shapes.ground.draw(context, program_state, model_transform.times(Mat4.rotation(Math.PI/2, 1, 0, 0)).times(Mat4.translation(0, 0, 2.3)).times(Mat4.scale(50, 50, 0.5)), this.materials.ground);
     this.shapes.skybox.draw(context, program_state, model_transform.times(Mat4.rotation(Math.PI/2, 1, 0, 0)).times(Mat4.scale(60, 60, 60)), this.materials.sky);
-    //this.draw_tree(context, program_state, model_transform);
     this.draw_trees(context, program_state, model_transform);
-    this.shapes.rock.draw(context, program_state, model_transform.times(Mat4.translation(0, -1, 0)), this.materials.rock);
-    this.shapes.rock.draw(context, program_state, model_transform.times(Mat4.translation(10, -1, 15)), this.materials.rock);
-    this.shapes.rock.draw(context, program_state, model_transform.times(Mat4.translation(17, -1, 33)), this.materials.rock);
+    this.draw_pond(context, program_state, model_transform);
   }
 }
 
