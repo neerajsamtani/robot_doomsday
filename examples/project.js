@@ -419,9 +419,8 @@ export class Project_Base extends Scene
       this.robots[index].location = this.robots[index].location
           .times(Mat4.rotation(x_rotation_angle, 0, 1, 0))
           .times(Mat4.translation(x_location_diff/euclidean_dist, 0, z_location_diff/euclidean_dist));
-      var top_torso_transform = this.robots[index].location;
-      this.robots[index].torso = this.robots[index].location;
-      this.robots[index].torso = this.robots[index].location.times(Mat4.translation(0, 0, 0));
+      var top_torso_transform = this.robots[index].location.times(Mat4.translation(...g_origin_offset));  // g_origin_offset.. TEMP FIX TO BUGGY MOVEMENT WITH CAMERA
+      this.robots[index].torso = top_torso_transform.times(Mat4.translation(0, 0, 0));
       this.robots[index].head = top_torso_transform.times(Mat4.translation(0, 2.9, 0));
       this.robots[index].bottom_torso = top_torso_transform.times(Mat4.rotation(Math.PI, 0, 1, 0))
           .times(Mat4.translation(0, -2.0, 0));
