@@ -526,7 +526,7 @@ export class Project_Base extends Scene
   draw_pond(context, program_state, model_transform){
     //Draw water
     this.r = Mat4.identity().times(Mat4.translation(...g_origin_offset)).times(Mat4.rotation(Math.PI/2, 1, 0, 0)).times(Mat4.translation(0, 0, 1.6));
-    const random = ( x ) => Math.sin( 1000*x + program_state.animation_time/100 );
+    const random = ( x ) => .5*Math.sin( 100*x + program_state.animation_time/200 );
     this.shapes.pond.arrays.position.forEach( (p,i,a) =>
         a[i] = vec3( p[0], p[1], .15*random( i/a.length ) ) );
     this.shapes.pond.flat_shade();
