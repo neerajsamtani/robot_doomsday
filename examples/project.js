@@ -8,10 +8,11 @@ const { vec3, vec4, vec, color, Mat4, Light, Shape, Material, Shader, Texture, S
 let g_dx = 0, g_dy = 0;
 let g_origin_offset = vec3(0, 0, 0);
 let g_cam_looking_at = vec3(NaN, NaN, NaN);
-let g_x_ccs = vec3(-1, 0, 0);
-let g_z_ccs = vec3(0, 0, -1);
-let g_z_rot = Math.PI;
+let g_x_ccs = vec3(1, 0, 0);
+let g_z_ccs = vec3(0, 0, 1);
+let g_z_rot = 0;
 let x_rotation_angle = 0;
+let g_pseudo_cam = Mat4.look_at(vec3(0, 0, 0), vec3(0, 0, -1), vec3(0, 1, 0));
 
 const FPS_Controls =
 class FPS_Controls extends defs.Movement_Controls
@@ -58,12 +59,12 @@ class FPS_Controls extends defs.Movement_Controls
     // The thrust values are subtracted from the g_origin_offset because we want the
     // objects to do the opposite of what I'm doing so it looks as if the cam is moving.
     if (this.thrust[0] !== 0) {
-      g_origin_offset[0] -= -1 * this.thrust[0] * g_x_ccs[0] * .1;
-      g_origin_offset[2] -= 1 * this.thrust[0] * g_x_ccs[2] * .1;
+      g_origin_offset[0] += 1 * this.thrust[0] * g_x_ccs[0] * .1;
+      g_origin_offset[2] += 1 * this.thrust[0] * g_x_ccs[2] * .1;
     }
     if (this.thrust[2] !== 0) {
-      g_origin_offset[0] -= 1 * this.thrust[2] * g_z_ccs[0] * .1;
-      g_origin_offset[2] -= -1 * this.thrust[2] * g_z_ccs[2] * .1;
+      g_origin_offset[0] += 1 * this.thrust[2] * g_z_ccs[0] * .1;
+      g_origin_offset[2] += 1 * this.thrust[2] * g_z_ccs[2] * .1;
     }
   }
 
@@ -81,35 +82,27 @@ class FPS_Controls extends defs.Movement_Controls
     // Rotate around the y axis, i.e. horizontal movement.
     let horiz_rot;
     if (dragging_vector[0] !== 0) {
-      let y_ccs = this.matrix().times(vec4(0, 1, 0, 0)).to3();
+      // let y_ccs = this.matrix().times(vec4(0, 1, 0, 0)).to3();
+      let y_ccs = g_pseudo_cam.times(vec4(0, 1, 0, 0)).to3();
       let rot_angle = radians_per_frame * dragging_vector.norm() * (dragging_vector[0] > 0 ? 1 : -1);
       // console.log(`Y Axis in CCS: (${y_ccs[0].toFixed(2)}, ${y_ccs[1].toFixed(2)}, ${y_ccs[2].toFixed(2)})`);
       horiz_rot = Mat4.rotation(rot_angle, y_ccs[0], y_ccs[1], y_ccs[2]);
     }
 
     // Report the x and z axis w.r.t. camera coordinate system.
-    g_x_ccs = this.inverse().times(vec4(1, 0, 0, 0)).to3();
-    g_z_ccs = this.inverse().times(vec4(0, 0, 1, 0)).to3();
+    g_x_ccs = Mat4.inverse(g_pseudo_cam).times(vec4(1, 0, 0, 0)).to3();
+    g_z_ccs = Mat4.inverse(g_pseudo_cam).times(vec4(0, 0, 1, 0)).to3();
 
     if (horiz_rot) {
-      this.matrix().post_multiply(horiz_rot);
-      this.inverse().pre_multiply(horiz_rot);
+      g_pseudo_cam.post_multiply(horiz_rot);
     }
+
+    let z_angle = Math.atan2(g_z_ccs[2], g_z_ccs[0]) - Math.atan2(1, 0);
+    g_z_rot = z_angle;
 
     // console.log(`CamZ: (${this.matrix()[0][2].toFixed(2)},
     // ${this.matrix()[1][2].toFixed(2)},
     // ${this.matrix()[2][2].toFixed(2)})`);
-
-    // Change sign of z component because we are looking down the negative z axis.
-    let cam = this.inverse();
-    g_cam_looking_at = vec3(cam[0][2], cam[1][2], cam[2][2] * -1);
-
-    // Compute angle of rotation between z axis and what I'm looking at.
-    // g_z_rot = Math.acos(vec3(0, 0, 1).dot((vec3(...g_z_ccs))));
-    // https://math.stackexchange.com/questions/654315/how-to-convert-a-dot-product-of-two-vectors-to-the-angle-between-the-vectors
-    // The constant is the evaluation of Math.atan(1, 0) = Pi/2 = 1.57...
-    let z_angle = Math.atan2(g_z_ccs[2], g_z_ccs[0]) - 1.5707963267948966;
-    g_z_rot = z_angle;
   }
 
   display(context, graphics_state, dt = graphics_state.animation_delta_time / 1000)
@@ -157,11 +150,6 @@ class Body{
   }
 }
 
-class Shrubery extends Body{
-  constructor(){
-
-  }
-}
 
 class Robot extends Body {
   constructor(){
@@ -411,7 +399,7 @@ export class Project_Base extends Scene
           // this.children.push( context.scratchpad.controls = new defs.Movement_Controls() );
           this.children.push(context.scratchpad.controls = new FPS_Controls());
           // program_state.set_camera( Mat4.translation( 0,0,0 ) );
-          program_state.set_camera(Mat4.look_at(vec3(0, 0, 0), vec3(0, 0, 1), vec3(0, 1, 0)));
+          program_state.set_camera(Mat4.look_at(vec3(0, 0, 0), vec3(0, 0, -1), vec3(0, 1, 0)));
 
           // Spawn all robots
           let robot1 = new Robot();
@@ -439,7 +427,9 @@ export class Project_Base extends Scene
     let robot_state = this.robots[index].state;
     let t = program_state.animation_time / 1000;
     // Variable oot is the origin offset transformation.
-    let oot = Mat4.identity().times(Mat4.translation(...g_origin_offset));
+    let oot = Mat4.identity()
+        .times(Mat4.rotation(g_z_rot, 0, 1, 0))
+        .times(Mat4.translation(...g_origin_offset));
     this.robots[index].inverse = Mat4.inverse(this.robots[index].location);
     //
     // let x_location_diff = oot.times(this.robots[index].location)[0][3];
@@ -567,19 +557,25 @@ export class Project_Base extends Scene
 
   //Function to draw the trees and rocks
   draw_trees(context, program_state, model_transform){
+    let moot = model_transform
+        .times(Mat4.rotation(g_z_rot, 0, 1, 0))
+        .times(Mat4.translation(...g_origin_offset));
     for(var i = 0; i < 36; i+= 1) {
       if (i % 2 == 0) {
-        this.shapes.tree_trunk.draw(context, program_state, model_transform.times(Mat4.translation(...g_origin_offset)).times(Mat4.translation(this.random_x[i], 0.5, this.random_z[i])), this.materials.tree_trunk);
-        this.shapes.tree_leaves.draw(context, program_state, model_transform.times(Mat4.translation(...g_origin_offset)).times(Mat4.translation(this.random_x[i], 1.4, this.random_z[i])), this.materials.tree_leaves);
+        this.shapes.tree_trunk.draw(context, program_state, moot.times(Mat4.translation(this.random_x[i], 0.5, this.random_z[i])), this.materials.tree_trunk);
+        this.shapes.tree_leaves.draw(context, program_state, moot.times(Mat4.translation(this.random_x[i], 1.4, this.random_z[i])), this.materials.tree_leaves);
       }else{
-        this.shapes.rock.draw(context, program_state, model_transform.times(Mat4.translation(...g_origin_offset)).times(Mat4.translation(this.random_x[i], -1, this.random_z[i])), this.materials.rock);
+        this.shapes.rock.draw(context, program_state, moot.times(Mat4.translation(this.random_x[i], -1, this.random_z[i])), this.materials.rock);
       }
     }
   }
   //Function to draw the pond
   draw_pond(context, program_state, model_transform){
     //Draw water
-    this.r = Mat4.identity().times(Mat4.translation(...g_origin_offset)).times(Mat4.rotation(Math.PI/2, 1, 0, 0)).times(Mat4.translation(0, 0, 1.6));
+    let oot = Mat4.identity()
+        .times(Mat4.rotation(g_z_rot, 0, 1, 0))
+        .times(Mat4.translation(...g_origin_offset));
+    this.r = oot.times(Mat4.rotation(Math.PI/2, 1, 0, 0)).times(Mat4.translation(0, 0, 1.6));
     const random = ( x ) => .5*Math.sin( 100*x + program_state.animation_time/200 );
     this.shapes.pond.arrays.position.forEach( (p,i,a) =>
         a[i] = vec3( p[0], p[1], .15*random( i/a.length ) ) );
@@ -588,21 +584,26 @@ export class Project_Base extends Scene
     this.shapes.pond.copy_onto_graphics_card( context.context, ["position","normal"], false );
 
     //Draw walls
-    this.shapes.wall.draw(context, program_state, model_transform.times(Mat4.translation(...g_origin_offset)).times(Mat4.scale(4, 0.45, 0.2)).times(Mat4.translation(-1.5, -4.0, -9.8)), this.materials.rock);
-    this.shapes.wall.draw(context, program_state, model_transform.times(Mat4.translation(...g_origin_offset)).times(Mat4.rotation(Math.PI/2, 0, 1.3, 0)).times(Mat4.scale(4, 0.45, 0.2)).times(Mat4.translation(1.44, -4.0, -9)), this.materials.rock);
-    this.shapes.wall.draw(context, program_state, model_transform.times(Mat4.translation(...g_origin_offset)).times(Mat4.scale(4.2, 0.45, 0.2)).times(Mat4.translation(-1.4, -4.0, -49.8)), this.materials.rock);
-    this.shapes.wall.draw(context, program_state, model_transform.times(Mat4.translation(...g_origin_offset)).times(Mat4.rotation(Math.PI/2, 0, 1.3, 0)).times(Mat4.scale(4, 0.45, 0.2)).times(Mat4.translation(1.44, -4.0, -49.5)), this.materials.rock);
+    let moot = model_transform
+        .times(Mat4.rotation(g_z_rot, 0, 1, 0))
+        .times(Mat4.translation(...g_origin_offset));
+    this.shapes.wall.draw(context, program_state, moot.times(Mat4.scale(4, 0.45, 0.2)).times(Mat4.translation(-1.5, -4.0, -9.8)), this.materials.rock);
+    this.shapes.wall.draw(context, program_state, moot.times(Mat4.rotation(Math.PI/2, 0, 1.3, 0)).times(Mat4.scale(4, 0.45, 0.2)).times(Mat4.translation(1.44, -4.0, -9)), this.materials.rock);
+    this.shapes.wall.draw(context, program_state, moot.times(Mat4.scale(4.2, 0.45, 0.2)).times(Mat4.translation(-1.4, -4.0, -49.8)), this.materials.rock);
+    this.shapes.wall.draw(context, program_state, moot.times(Mat4.rotation(Math.PI/2, 0, 1.3, 0)).times(Mat4.scale(4, 0.45, 0.2)).times(Mat4.translation(1.44, -4.0, -49.5)), this.materials.rock);
   }
   // The new version of the function will also translate according to the world offset, which
   // is a (x, y, z) tuple which will help us to make it look like the player is moving, but
   // in actuality, the world is the one moving. This is done to make computations easier.
   draw_environment(context, program_state, model_transform) {
     this.shapes.ground.draw(context, program_state, model_transform
+        .times(Mat4.rotation(g_z_rot, 0, 1, 0))
         .times(Mat4.translation(...g_origin_offset))
         .times(Mat4.rotation(Math.PI/2, 1, 0, 0))
         .times(Mat4.translation(0, 0, 2))
         .times(Mat4.scale(50, 50, 0.5)), this.materials.ground);
     this.shapes.skybox.draw(context, program_state, model_transform
+        .times(Mat4.rotation(g_z_rot, 0, 1, 0))
         .times(Mat4.translation(...g_origin_offset))
         .times(Mat4.rotation(Math.PI/2, 1, 0, 0))
         .times(Mat4.scale(60, 60, 60)), this.materials.sky);
