@@ -144,6 +144,23 @@ class Body{
     this.location = 0;
     this.state = 0;
   }
+  intersect_sphere(p, margin = 0){
+    return p.dot(p) < 1 + margin;
+  }
+
+  check_if_colliding(target){
+    if (this == target)
+      return false;
+    const T = this.inverse.times(target.location, Mat4.identity());
+    let points = new defs.Subdivision_Sphere(2);
+    return points.arrays.position.some( p => this.intersect_sphere(T.times(p.to4(1)).to3(),10));
+  }
+}
+
+class Shrubery extends Body{
+  constructor(){
+
+  }
 }
 
 class Robot extends Body {
@@ -168,18 +185,6 @@ class Robot extends Body {
     this.torso_prop = [0, 0];
     this.head_prop = [0,0];
     this.arm_prop = [0,0];
-  }
-
-  intersect_sphere(p, margin = 0){
-    return p.dot(p) < 1 + margin;
-  }
-
-  check_if_colliding(target){
-    if (this == target)
-      return false;
-    const T = this.inverse.times(target.location, Mat4.identity());
-    let points = new defs.Subdivision_Sphere(2);
-    return points.arrays.position.some( p => this.intersect_sphere(T.times(p.to4(1)).to3(),10));
   }
 }
 
@@ -435,6 +440,7 @@ export class Project_Base extends Scene
     let t = program_state.animation_time / 1000;
     // Variable oot is the origin offset transformation.
     let oot = Mat4.identity().times(Mat4.translation(...g_origin_offset));
+    this.robots[index].inverse = Mat4.inverse(this.robots[index].location);
     //
     // let x_location_diff = oot.times(this.robots[index].location)[0][3];
     //
@@ -448,6 +454,19 @@ export class Project_Base extends Scene
 
     // Alive
     if(robot_state == 0){
+      for(let b of this.robots){
+        // console.log(b);
+        if(this.robots[index] != b && b.state != 0)
+          continue;
+        if(!this.robots[index].check_if_colliding(b))
+          continue;
+        b.state = 1; 
+        b.time = this.t; 
+        b.linear_velocity[0] = (Math.random() + 1) * 1.2; 
+        b.linear_velocity[1] = (Math.random() + 1) * 1.2; 
+        b.linear_velocity[2] = (Math.random() + 1) * 1.2; 
+      }
+
       // Calculate robot's planned path
       let x_location_diff = oot.times(this.robots[index].location)[0][3];
       let y_location_diff = oot.times(this.robots[index].location)[1][3];
