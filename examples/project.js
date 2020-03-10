@@ -143,7 +143,7 @@ class Body{
   constructor(x = 0, y = 0, z = 0){
     this.location = Mat4.identity().times(Mat4.translation(x,y,z));
     this.state = 0;
-    this.margin = 2;
+    this.margin = 1;
   }
   intersect_sphere(p, margin = 0){
     return p.dot(p) < 1 + margin;
@@ -154,14 +154,19 @@ class Body{
       return false;
     const T = this.inverse.times(target.location, Mat4.identity());
     let points = new defs.Subdivision_Sphere(2);
-    return points.arrays.position.some( p => this.intersect_sphere(T.times(p.to4(1)).to3(),this.margin));
+    return points.arrays.position.some( p => this.intersect_sphere(T.times(p.to4(1)).to3(), target.margin));
+  }
+}
+
+class Laser extends Body{
+  constructor(x, y, z){
+    super(x,y,z);
   }
 }
 
 class Immovable extends Body{
   constructor(x, y, z){
     super(x, y, z);
-    this.margin = 2;
     this.inverse = Mat4.inverse(this.location);
   }
 }
@@ -170,7 +175,7 @@ class Robot extends Body {
   constructor(x, y, z){
     super(x, y, z);
     this.location = this.location.times(Mat4.scale(0.5, 0.5, 0.5))
-    this.margin = 2;
+    this.margin = 10;
     this.linear_velocity = [0,0,0];   // Initial Linear Velocity - for explosion of robot
     this.time = 0;                    // Time once start explosion to map Kinematics Properties
     
@@ -189,6 +194,8 @@ class Robot extends Body {
     this.torso_prop = [0, 0];
     this.head_prop = [0,0];
     this.arm_prop = [0,0];
+
+    this.broken_parts = 0;
   }
 }
 
@@ -296,6 +303,7 @@ export class Project_Base extends Scene
       super();
       this.robots = [];
       this.immovables = [];
+      this.lasers = [];
       this.hover = this.swarm = false;
       const initial_corner_point = vec3( -10,-10,0 );
       const row_operation = (s,p) => p ? Mat4.translation( 0,.08,0 ).times(p.to4(10)).to3() : initial_corner_point;
@@ -505,7 +513,6 @@ export class Project_Base extends Scene
 
     // Collapse
     else if(robot_state == 1){
-      let broken_parts = 0;
       var top_torso_transform = this.robots[index].location.times(Mat4.rotation(x_rotation_angle, 0, 1, 0));
       let t = (this.t - this.robots[index].time) * 1.5;
       let x = this.robots[index].linear_velocity[0] * t;
@@ -514,7 +521,7 @@ export class Project_Base extends Scene
 
       // Head collapse and bounce
       if(this.robots[index].head[1][3] < this.robots[index].location[1][3] - .9 && this.robots[index].head_prop[0] && (this.t - this.robots[index].head_prop[1]) > .5){
-        broken_parts |= 1;
+        this.robots[index].broken_parts |= 1;
       }else if (this.robots[index].head[1][3] < this.robots[index].location[1][3] - .9 && this.robots[index].head_prop[0] == 0) {
         this.robots[index].head_prop[0] =  -1.7 * (this.robots[index].linear_velocity[1]- 9.8 * t);
         this.robots[index].head_prop[1] = this.t;
@@ -527,7 +534,7 @@ export class Project_Base extends Scene
 
       // torso collapse and bounce
       if(this.robots[index].torso[1][3] < this.robots[index].location[1][3] - 1 && this.robots[index].torso_prop[0] && (this.t - this.robots[index].torso_prop[1]) > .2){
-        broken_parts |= 2;
+        this.robots[index].broken_parts |= 2;
       }else if (this.robots[index].torso[1][3] < this.robots[index].location[1][3] - 1 && this.robots[index].torso_prop[0] == 0) {
         this.robots[index].torso_prop[0] = 2* (this.robots[index].linear_velocity[1]- 9.8 * t);
         this.robots[index].torso_prop[1] = this.t;
@@ -542,7 +549,7 @@ export class Project_Base extends Scene
 
       //Arm collapse and bounce
       if(this.robots[index].left_arm[1][3] < this.robots[index].location[1][3] - 1.4 && this.robots[index].arm_prop[0] && (this.t - this.robots[index].arm_prop[1]) > .2){
-        broken_parts |= 1;
+        this.robots[index].broken_parts |= 4;
       }else if (this.robots[index].left_arm[1][3] < this.robots[index].location[1][3] - 1.4 && this.robots[index].arm_prop[0] == 0) {
         this.robots[index].arm_prop[0] =  -1.7 * (this.robots[index].linear_velocity[1]- 9.8 * t);
         this.robots[index].arm_prop[1] = this.t;
@@ -557,7 +564,7 @@ export class Project_Base extends Scene
         this.robots[index].right_hand = top_torso_transform.times(Mat4.translation(-5-x, -.5+y3, 0))
           .times(Mat4.scale(0.5, 0.5, 0.5)).times(Mat4.rotation(Math.PI/3, 0, 0, -1));
       }
-      if(broken_parts == 8){
+      if(this.robots[index].broken_parts == 7){
         this.robots[index].state = 2;
       }
     }
@@ -629,7 +636,7 @@ export class Project extends Project_Base
       super.display( context, program_state );
       let model_transform = Mat4.identity();
       const t = this.t = program_state.animation_time/1000;
-
+      this.robots = this.robots.filter( b => b.state != 2);
       // Draw robot
       for (var i = 0; i < this.robots.length; i++)
         this.draw_robot(context, program_state, i);
