@@ -248,7 +248,7 @@ export class Collision_Demo extends Simulation
     }
   increase() { this.collider_selection = Math.min( this.collider_selection + 1, this.colliders.length-1 ); }
   decrease() { this.collider_selection = Math.max( this.collider_selection - 1, 0 ) }
-  update_state( dt, num_bodies = 40 )                                                            
+  update_state( dt, num_bodies = 5 )                                                            
     {                 // update_state():  Override the base time-stepping code to say what this particular
                       // scene should do to its bodies every frame -- including applying forces.
                                                               // Generate moving bodies:
@@ -257,15 +257,14 @@ export class Collision_Demo extends Simulation
               .emplace(         Mat4.translation( ...unsafe3( 0,0,0 ).randomized(30) )
                         .times( Mat4.rotation( Math.PI, ...unsafe3( 0,0,0 ).randomized(1).normalized() ) ),
                         unsafe3( 0,0,0 ).randomized(20), Math.random() ) );
-                                      // Sometimes we delete some so they can re-generate as new ones:                            
-      this.bodies = this.bodies.filter( b => ( Math.random() > .01 ) || b.linear_velocity.norm() > 1 ); 
+                                      // Sometimes we delete some so they can re-generate as new ones:    
 
-      const collider = this.colliders[ this.collider_selection ];
+      const collider = this.colliders[ 1 ];
                                                     // Loop through all bodies (call each "a"):
       for( let a of this.bodies )
         {                                                 // Cache the inverse of matrix of body "a" to save time.
           a.inverse = Mat4.inverse( a.drawn_location );
-
+          console.log(a);
           a.linear_velocity = a.linear_velocity.minus( a.center.times( dt ) );            // Apply a small centripetal force to everything.
           a.material = this.inactive_color;       // Default color: white
 

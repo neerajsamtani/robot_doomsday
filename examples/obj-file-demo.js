@@ -105,7 +105,7 @@ export class Obj_File_Demo extends Scene
     constructor()                               
       { super();
                                       // Load the model file:
-          this.shapes = { "head": new Shape_From_File( "assets/Head.obj"),
+          this.shapes = { "head": new Shape_From_File( "assets/ray_gun.obj"),
               "top_torso": new Shape_From_File( "assets/Top-Torso.obj"),
               "bottom_torso": new Shape_From_File( "assets/Bottom-Torso.obj"),
               "left_arm": new Shape_From_File( "assets/Left-Arm.obj"),
