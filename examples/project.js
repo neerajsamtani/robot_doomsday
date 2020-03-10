@@ -490,13 +490,14 @@ export class Project_Base extends Scene
       let x_location_diff = oot.times(this.robots[index].location)[0][3];
       let y_location_diff = oot.times(this.robots[index].location)[1][3];
       let z_location_diff = oot.times(this.robots[index].location)[2][3];
-      let euclidean_dist = 10 * Math.sqrt(Math.pow(x_location_diff, 2) + Math.pow(z_location_diff, 2));
+      let euclidean_dist = Math.sqrt(Math.pow(x_location_diff, 2) + Math.pow(z_location_diff, 2));
+      // TODO: Fix flipping by 180 when behind robot
       x_rotation_angle  = Math.atan(x_location_diff/z_location_diff);
 
       // Separate translation from rotation
       // Update the translation globally so that the robots movement is procedural
       this.robots[index].location = this.robots[index].location
-          .times(Mat4.translation(-1 * x_location_diff/euclidean_dist, 0, -1 * z_location_diff/euclidean_dist));
+          .times(Mat4.translation(-1 * x_location_diff/(10 *euclidean_dist), 0, -1 * z_location_diff/(10 * euclidean_dist)));
       // Update the rotation locally so that the robots rotation doesn't multiply with itself, causing it to spin like crazy
       var top_torso_transform = this.robots[index].location.times(Mat4.rotation(x_rotation_angle, 0, 1, 0));
       this.robots[index].torso = top_torso_transform.times(Mat4.translation(0, 0, 0));
