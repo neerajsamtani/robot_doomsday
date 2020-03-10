@@ -1,0 +1,19 @@
+
+//Code for Collisions
+for(let a of this.robots){
+    a.inverse = Mat4.inverse(a.location);
+    if(a.state != 0)
+        continue;
+    for(let b of this.robots){
+        // console.log(b);
+        if(a != b && b.state != 0)
+            continue;
+        if(!a.check_if_colliding(b))
+            continue;
+        a.state = 1; 
+        a.time = this.t; 
+        a.linear_velocity[0] = (Math.random() + 1) * 1.2; 
+        a.linear_velocity[1] = (Math.random() + 1) * 1.2; 
+        a.linear_velocity[2] = (Math.random() + 1) * 1.2; 
+    }
+}
