@@ -140,8 +140,8 @@ class FPS_Controls extends defs.Movement_Controls
 };
 
 class Body{
-  constructor(){
-    this.location = 0;
+  constructor(x = 0, y = 0, z = 0){
+    this.location = Mat4.identity().times(Mat4.translation(x,y,z));
     this.state = 0;
   }
   intersect_sphere(p, margin = 0){
@@ -153,20 +153,22 @@ class Body{
       return false;
     const T = this.inverse.times(target.location, Mat4.identity());
     let points = new defs.Subdivision_Sphere(2);
-    return points.arrays.position.some( p => this.intersect_sphere(T.times(p.to4(1)).to3(),10));
+    return points.arrays.position.some( p => this.intersect_sphere(T.times(p.to4(1)).to3(),this.margin));
   }
 }
 
-class Shrubery extends Body{
-  constructor(){
-
+class Immovable extends Body{
+  constructor(x, y, z){
+    super(x, y, z);
+    this.margin = 20;
   }
 }
 
 class Robot extends Body {
-  constructor(){
-    super();
-   
+  constructor(x, y, z){
+    super(x, y, z);
+    this.location = this.location.times(Mat4.scale(0.5, 0.5, 0.5))
+    this.margin = 10;
     this.linear_velocity = [0,0,0];   // Initial Linear Velocity - for explosion of robot
     this.time = 0;                    // Time once start explosion to map Kinematics Properties
     
@@ -414,12 +416,10 @@ export class Project_Base extends Scene
           program_state.set_camera(Mat4.look_at(vec3(0, 0, 0), vec3(0, 0, 1), vec3(0, 1, 0)));
 
           // Spawn all robots
-          let robot1 = new Robot();
-          this.robots.push(robot1);
-          let robot2 = new Robot();
-          this.robots.push(robot2);
-          let robot3 = new Robot();
-          this.robots.push(robot3);
+          let robot1 = new Robot(); this.robots.push(robot1);
+          let robot2 = new Robot(); this.robots.push(robot2); 
+          this.robots.push(new Robot());
+
           this.robots[0].location = Mat4.identity().times(Mat4.translation(0,0.3,-25)).times(Mat4.scale(0.5, 0.5, 0.5));
           this.robots[1].location = Mat4.identity().times(Mat4.translation(10,0.3,-45)).times(Mat4.scale(0.5, 0.5, 0.5));
           this.robots[2].location = Mat4.identity().times(Mat4.translation(-10,0.3,-45)).times(Mat4.scale(0.5, 0.5, 0.5));
@@ -433,6 +433,14 @@ export class Project_Base extends Scene
       //const light_position = Mat4.rotation( angle,   1,0,0 ).times( vec4( 0,-1,1,0 ) );
       program_state.lights = [ new Light( vec4( 0,-1,1,0 ), color( 1,1,1,1 ), 1000000 ) ];
     }
+
+  set_collapse(b){
+    b.state = 1; 
+    b.time = this.t; 
+    b.linear_velocity[0] = (Math.random() + 1) * 1.2; 
+    b.linear_velocity[1] = (Math.random() + 1) * 1.2; 
+    b.linear_velocity[2] = (Math.random() + 1) * 1.2; 
+  }
 
   draw_robot(context, program_state, index)
   {
@@ -454,17 +462,14 @@ export class Project_Base extends Scene
 
     // Alive
     if(robot_state == 0){
+      // for(let c of this.immovables){
+
+      // }
       for(let b of this.robots){
         // console.log(b);
-        if(this.robots[index] != b && b.state != 0)
+        if(this.robots[index] != b && b.state != 0 || !this.robots[index].check_if_colliding(b))
           continue;
-        if(!this.robots[index].check_if_colliding(b))
-          continue;
-        b.state = 1; 
-        b.time = this.t; 
-        b.linear_velocity[0] = (Math.random() + 1) * 1.2; 
-        b.linear_velocity[1] = (Math.random() + 1) * 1.2; 
-        b.linear_velocity[2] = (Math.random() + 1) * 1.2; 
+        this.set_collapse(b);
       }
 
       // Calculate robot's planned path
@@ -496,6 +501,7 @@ export class Project_Base extends Scene
       this.robots[index].right_hand = top_torso_transform.times(Mat4.translation(-2.9, -2.7, 0))
           .times(Mat4.scale(0.5, 0.5, 0.5));
     }
+
     // Collapse
     else if(robot_state == 1){
       let broken_parts = 0;
@@ -642,28 +648,10 @@ export class Project extends Project_Base
 
       // Ensure player cannot move in y-space
       // context.program_state.camera_inverse = Mat4.translation(this.player_x[3], 0, this.player_z[3]);
-      for(let a of this.robots){
-        a.inverse = Mat4.inverse(a.location);
-        if(a.state != 0)
-          continue;
-        for(let b of this.robots){
-          // console.log(b);
-          if(a != b && b.state != 0)
-            continue;
-          if(!a.check_if_colliding(b))
-            continue;
-          a.state = 1; 
-          a.time = this.t; 
-          a.linear_velocity[0] = (Math.random() + 1) * 1.2; 
-          a.linear_velocity[1] = (Math.random() + 1) * 1.2; 
-          a.linear_velocity[2] = (Math.random() + 1) * 1.2; 
-        }
-      }
 
       // Draw robot
-      this.draw_robot(context, program_state, 0);
-      this.draw_robot(context, program_state, 1);
-      this.draw_robot(context, program_state, 2);
+      for (var i = 0; i < this.robots.length; i++)
+        this.draw_robot(context, program_state, i);
       // Draw environment
       this.draw_environment(context, program_state, model_transform);
 
