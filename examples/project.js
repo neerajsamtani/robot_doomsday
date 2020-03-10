@@ -298,13 +298,12 @@ export class Project_Base extends Scene
                       "left_hand": new Shape_From_File( "assets/Left-Hand.obj"),
                       "right_arm": new Shape_From_File( "assets/Right-Arm.obj"),
                       "right_hand": new Shape_From_File( "assets/Right-Hand.obj"),
-                      "handgun": new Shape_From_File("assets/Handgun.obj"),
                       "ground" : new Capped_Cylinder(100, 100, [[0,2],[0,1]]),
                       "skybox": new Subdivision_Sphere(4),
                       "tree_trunk": new Shape_From_File("assets/tree_trunk.obj"),
                       "tree_leaves": new Shape_From_File("assets/tree_leaves.obj"),
                       "rock" : new Shape_From_File("assets/rock.obj"),
-                      "pistol" : new Shape_From_File("assets/pistol.obj"),
+                      "pistol" : new Shape_From_File("assets/ray_gun.obj"),
                       "pond" : new defs.Grid_Patch( 10, 10, row_operation, column_operation ),
                       "wall" : new Cube()};
 
@@ -620,9 +619,9 @@ export class Project extends Project_Base
       // let cube_transform = Mat4.identity().times(Mat4.rotation(g_z_rot, 0, 1, 0)).times(Mat4.translation(0, 0, -5));
       let pistol_transform = Mat4.identity()
           .times(Mat4.rotation(g_z_rot, 0, 1, 0))
-          .times(Mat4.translation(1.5, -1, -3))
-          .times(Mat4.rotation(5 * Math.PI / 8, 0, 1, 0))
-          .times(Mat4.rotation(Math.PI / 2, 1, 0, 0))
+          .times(Mat4.translation(1.5, -0.9, -3))
+          .times(Mat4.rotation(-4 * Math.PI / 8, 0, 1, 0))
+          //.times(Mat4.rotation(Math.PI / 2, 1, 0, 0))
           .times(Mat4.scale(.4, .4, .4));
       this.shapes.pistol.draw(context, program_state, pistol_transform,
           this.materials.metal.override( { color: [128/255, 128/255, 128/255, 1] }));
