@@ -143,6 +143,7 @@ class Body{
   constructor(x = 0, y = 0, z = 0){
     this.location = Mat4.identity().times(Mat4.translation(x,y,z));
     this.state = 0;
+    this.margin = 2;
   }
   intersect_sphere(p, margin = 0){
     return p.dot(p) < 1 + margin;
@@ -160,7 +161,8 @@ class Body{
 class Immovable extends Body{
   constructor(x, y, z){
     super(x, y, z);
-    this.margin = 20;
+    this.margin = 2;
+    this.inverse = Mat4.inverse(this.location);
   }
 }
 
@@ -168,7 +170,7 @@ class Robot extends Body {
   constructor(x, y, z){
     super(x, y, z);
     this.location = this.location.times(Mat4.scale(0.5, 0.5, 0.5))
-    this.margin = 10;
+    this.margin = 2;
     this.linear_velocity = [0,0,0];   // Initial Linear Velocity - for explosion of robot
     this.time = 0;                    // Time once start explosion to map Kinematics Properties
     
@@ -293,6 +295,7 @@ export class Project_Base extends Scene
     {                  // constructor(): Scenes begin by populating initial values like the Shapes and Materials they'll need.
       super();
       this.robots = [];
+      this.immovables = [];
       this.hover = this.swarm = false;
       const initial_corner_point = vec3( -10,-10,0 );
       const row_operation = (s,p) => p ? Mat4.translation( 0,.08,0 ).times(p.to4(10)).to3() : initial_corner_point;
@@ -340,6 +343,7 @@ export class Project_Base extends Scene
         var theta1 = Math.random() * 0.174533 + theta;
         this.random_x.push(R*Math.cos(theta1));
         this.random_z.push(R*Math.sin(theta1));
+        this.immovables.push(new Immovable(this.random_x[i], .3, this.random_z[i]));
         theta += 0.174533
       }
     }
@@ -416,13 +420,9 @@ export class Project_Base extends Scene
           program_state.set_camera(Mat4.look_at(vec3(0, 0, 0), vec3(0, 0, 1), vec3(0, 1, 0)));
 
           // Spawn all robots
-          let robot1 = new Robot(); this.robots.push(robot1);
-          let robot2 = new Robot(); this.robots.push(robot2); 
-          this.robots.push(new Robot());
-
-          this.robots[0].location = Mat4.identity().times(Mat4.translation(0,0.3,-25)).times(Mat4.scale(0.5, 0.5, 0.5));
-          this.robots[1].location = Mat4.identity().times(Mat4.translation(10,0.3,-45)).times(Mat4.scale(0.5, 0.5, 0.5));
-          this.robots[2].location = Mat4.identity().times(Mat4.translation(-10,0.3,-45)).times(Mat4.scale(0.5, 0.5, 0.5));
+          this.robots.push(new Robot(0,0.3,-25));
+          this.robots.push(new Robot(10,0.3,-45)); 
+          this.robots.push(new Robot(-10,0.3,-45));
           //  0 means alive - 1 means animate collapse - 2 means stay collapsed
         }
 
@@ -462,9 +462,10 @@ export class Project_Base extends Scene
 
     // Alive
     if(robot_state == 0){
-      // for(let c of this.immovables){
-
-      // }
+      for(let c of this.immovables){
+        if(this.robots[index].check_if_colliding(c))
+          this.set_collapse(this.robots[index]);
+      }
       for(let b of this.robots){
         // console.log(b);
         if(this.robots[index] != b && b.state != 0 || !this.robots[index].check_if_colliding(b))
@@ -582,6 +583,7 @@ export class Project_Base extends Scene
       }
     }
   }
+
   //Function to draw the pond
   draw_pond(context, program_state, model_transform){
     //Draw water
@@ -628,30 +630,10 @@ export class Project extends Project_Base
       let model_transform = Mat4.identity();
       const t = this.t = program_state.animation_time/1000;
 
-      // DEBUGGING
-      // if ( this.player_x[0] !== context.program_state.camera_inverse[0][0] ||
-      //       this.player_x[1] !== context.program_state.camera_inverse[0][1] ||
-      //     this.player_x[2] !== context.program_state.camera_inverse[0][2] ||
-      //     this.player_x[3] !== context.program_state.camera_inverse[0][3] ||
-      //     this.player_y[0] !== context.program_state.camera_inverse[1][0] ||
-      //     this.player_y[1] !== context.program_state.camera_inverse[1][1] ||
-      //     this.player_y[2] !== context.program_state.camera_inverse[1][2] ||
-      //     this.player_y[3] !== context.program_state.camera_inverse[1][3] ||
-      //     this.player_z[0] !== context.program_state.camera_inverse[2][0] ||
-      //     this.player_z[1] !== context.program_state.camera_inverse[2][1] ||
-      //     this.player_z[2] !== context.program_state.camera_inverse[2][2] ||
-      //     this.player_z[3] !== context.program_state.camera_inverse[2][3])
-      // {
-      //   console.log("Player: ", context.program_state.camera_inverse);
-      //   console.log("Robot: ", this.robot_location);
-      // }
-
-      // Ensure player cannot move in y-space
-      // context.program_state.camera_inverse = Mat4.translation(this.player_x[3], 0, this.player_z[3]);
-
       // Draw robot
       for (var i = 0; i < this.robots.length; i++)
         this.draw_robot(context, program_state, i);
+
       // Draw environment
       this.draw_environment(context, program_state, model_transform);
 
