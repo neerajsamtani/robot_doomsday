@@ -7,7 +7,6 @@ const { vec3, vec4, vec, color, Mat4, Light, Shape, Material, Shader, Texture, S
 
 let g_dx = 0, g_dy = 0;
 let g_origin_offset = vec3(0, 0, 0);
-let g_world_objects = [];
 let g_cam_looking_at = vec3(NaN, NaN, NaN);
 let g_x_ccs = vec3(-1, 0, 0);
 let g_z_ccs = vec3(0, 0, -1);
@@ -107,7 +106,8 @@ class FPS_Controls extends defs.Movement_Controls
     // Compute angle of rotation between z axis and what I'm looking at.
     // g_z_rot = Math.acos(vec3(0, 0, 1).dot((vec3(...g_z_ccs))));
     // https://math.stackexchange.com/questions/654315/how-to-convert-a-dot-product-of-two-vectors-to-the-angle-between-the-vectors
-    let z_angle= Math.atan2(g_z_ccs[2], g_z_ccs[0]) - Math.atan2(1, 0);
+    // The constant is the evaluation of Math.atan(1, 0) = Pi/2 = 1.57...
+    let z_angle = Math.atan2(g_z_ccs[2], g_z_ccs[0]) - 1.5707963267948966;
     g_z_rot = z_angle;
   }
 
@@ -165,7 +165,7 @@ class Robot extends Body {
     // [1] - rebound y-velocity
     // [2] - time of rebound (this.t at first hit of ground)
     this.torso_prop = [0, 0];
-    this.head_prop = [0,0]
+    this.head_prop = [0,0];
     this.arm_prop = [0,0];
   }
 
@@ -429,7 +429,7 @@ export class Project_Base extends Scene
       this.robots[index].location = this.robots[index].location
           .times(Mat4.rotation(x_rotation_angle, 0, 1, 0))
           .times(Mat4.translation(x_location_diff/euclidean_dist, 0, z_location_diff/euclidean_dist));
-      var top_torso_transform = this.robots[index].location.times(Mat4.translation(...g_origin_offset));  // g_origin_offset.. TEMP FIX TO BUGGY MOVEMENT WITH CAMERA
+      var top_torso_transform = this.robots[index].location;
       this.robots[index].torso = top_torso_transform.times(Mat4.translation(0, 0, 0));
       this.robots[index].head = top_torso_transform.times(Mat4.translation(0, 2.9, 0));
       this.robots[index].bottom_torso = top_torso_transform.times(Mat4.rotation(Math.PI, 0, 1, 0))
@@ -501,13 +501,16 @@ export class Project_Base extends Scene
     }
 
     // Draw Robot at robot_center
-    this.shapes.head.draw( context, program_state, this.robots[index].head, this.materials.robot_texture);
-    this.shapes.top_torso.draw( context, program_state, this.robots[index].torso, this.materials.robot_texture);
-    this.shapes.bottom_torso.draw( context, program_state, this.robots[index].bottom_torso, this.materials.robot_texture);
-    this.shapes.left_arm.draw( context, program_state, this.robots[index].left_arm, this.materials.robot_texture);
-    this.shapes.left_hand.draw( context, program_state, this.robots[index].left_hand, this.materials.robot_texture);
-    this.shapes.right_arm.draw( context, program_state, this.robots[index].right_arm, this.materials.robot_texture);
-    this.shapes.right_hand.draw( context, program_state, this.robots[index].right_hand, this.materials.robot_texture);
+
+    // Variable oot is the origin offset transformation.
+    let oot = Mat4.identity().times(Mat4.translation(...g_origin_offset));
+    this.shapes.head.draw( context, program_state, oot.times(this.robots[index].head), this.materials.robot_texture);
+    this.shapes.top_torso.draw( context, program_state, oot.times(this.robots[index].torso), this.materials.robot_texture);
+    this.shapes.bottom_torso.draw( context, program_state, oot.times(this.robots[index].bottom_torso), this.materials.robot_texture);
+    this.shapes.left_arm.draw( context, program_state, oot.times(this.robots[index].left_arm), this.materials.robot_texture);
+    this.shapes.left_hand.draw( context, program_state, oot.times(this.robots[index].left_hand), this.materials.robot_texture);
+    this.shapes.right_arm.draw( context, program_state, oot.times(this.robots[index].right_arm), this.materials.robot_texture);
+    this.shapes.right_hand.draw( context, program_state, oot.times(this.robots[index].right_hand), this.materials.robot_texture);
   }
 
   //Function to draw the trees and rocks
@@ -617,7 +620,6 @@ export class Project extends Project_Base
       // Draw environment
       this.draw_environment(context, program_state, model_transform);
 
-      // let cube_transform = Mat4.identity().times(Mat4.rotation(g_z_rot, 0, 1, 0)).times(Mat4.translation(0, 0, -5));
       let pistol_transform = Mat4.identity()
           .times(Mat4.rotation(g_z_rot, 0, 1, 0))
           .times(Mat4.translation(1.5, -1, -3))
@@ -626,6 +628,5 @@ export class Project extends Project_Base
           .times(Mat4.scale(.4, .4, .4));
       this.shapes.pistol.draw(context, program_state, pistol_transform,
           this.materials.metal.override( { color: [128/255, 128/255, 128/255, 1] }));
-      // this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.translation(3, 0, 0)), this.materials.plastic);
     }
 }
