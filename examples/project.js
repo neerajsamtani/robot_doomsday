@@ -146,7 +146,7 @@ class Body{
   constructor(x = 0, y = 0, z = 0){
     this.location = Mat4.identity().times(Mat4.translation(x,y,z));
     this.state = 0;
-    this.margin = 1;
+    this.margin = .5;
   }
   intersect_sphere(p, margin = 0){
     return p.dot(p) < 1 + margin;
@@ -155,9 +155,10 @@ class Body{
   check_if_colliding(target){
     if (this == target)
       return false;
-    const T = this.inverse.times(target.location, Mat4.identity());
-    let points = new defs.Subdivision_Sphere(2);
-    return points.arrays.position.some( p => this.intersect_sphere(T.times(p.to4(1)).to3(), target.margin));
+    // const T = this.inverse.times(target.location, Mat4.identity());
+    // let points = new defs.Subdivision_Sphere(2);
+    let e_dist = Math.pow(target.location[0][3] - this.location[0][3], 2) + Math.pow(target.location[2][3] - this.location[2][3], 2);
+    return e_dist < target.margin + this.margin;
   }
 }
 
@@ -170,7 +171,6 @@ class Laser extends Body{
 class Immovable extends Body{
   constructor(x, y, z){
     super(x, y, z);
-    this.inverse = Mat4.inverse(this.location);
   }
 }
 
@@ -178,7 +178,7 @@ class Robot extends Body {
   constructor(x, y, z){
     super(x, y, z);
     this.location = this.location.times(Mat4.scale(0.5, 0.5, 0.5))
-    this.margin = 10;
+    this.margin = 1.5 + this.state;
     this.linear_velocity = [0,0,0];   // Initial Linear Velocity - for explosion of robot
     this.time = 0;                    // Time once start explosion to map Kinematics Properties
     
@@ -472,7 +472,6 @@ export class Project_Base extends Scene
     let t = program_state.animation_time / 1000;
     // Variable oot is the origin offset transformation.
     let oot = Mat4.identity().times(Mat4.translation(...g_origin_offset));
-    this.robots[index].inverse = Mat4.inverse(this.robots[index].location);
 
     // Alive
     if(robot_state == 0){
@@ -639,7 +638,7 @@ export class Project extends Project_Base
       super.display( context, program_state );
       let model_transform = Mat4.identity();
       const t = this.t = program_state.animation_time/1000;
-      this.robots = this.robots.filter( b => b.state != 2);
+      //this.robots = this.robots.filter( b => b.state != 2);
       // Draw robot
       for (var i = 0; i < this.robots.length; i++)
         this.draw_robot(context, program_state, i);
