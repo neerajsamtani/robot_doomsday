@@ -517,9 +517,6 @@ export class Project_Base extends Scene {                                       
     let robot_state = this.robots[index].state;
     let t = program_state.animation_time / 1000;
     // Variable oot is the origin offset transformation.
-
-    // let oot = Mat4.identity().times(Mat4.translation(...g_origin_offset));
-
     let oot = Mat4.identity()
         .times(Mat4.rotation(g_z_rot, 0, 1, 0))
         .times(Mat4.translation(...g_origin_offset));
@@ -530,8 +527,13 @@ export class Project_Base extends Scene {                                       
     let y_location_diff = this.robots[index].location.times(Mat4.translation(...g_origin_offset))[1][3];
     let z_location_diff = Mat4.translation(...g_origin_offset).times(this.robots[index].location)[2][3];
     let euclidean_dist = Math.sqrt(Math.pow(x_location_diff, 2) + Math.pow(z_location_diff, 2));
-    // TODO: Fix flipping by 180 when behind robot
-    x_rotation_angle = Math.atan(x_location_diff / z_location_diff);
+    // Prevent robot from flipping 180 degrees when out of the range of Math.atan
+    if (x_location_diff > 0 && z_location_diff > 0)
+      x_rotation_angle = Math.atan(x_location_diff / z_location_diff) - Math.PI;
+    else if (x_location_diff < 0 && z_location_diff > 0)
+      x_rotation_angle = Math.atan(x_location_diff / z_location_diff) + Math.PI;
+    else
+      x_rotation_angle = Math.atan((x_location_diff) / (z_location_diff));
 
     // Alive
     if (robot_state == 0) {
@@ -767,6 +769,7 @@ export class Project extends Project_Base
       this.shapes.box.draw(context, program_state, crosshair_left_transform, this.materials.plastic.override({color:[1, 0, 0, 1]}));
       this.shapes.box.draw(context, program_state, crosshair_right_transform, this.materials.plastic.override({color:[1, 0, 0, 1]}));
 
+      // TODO: Fix pistol shading.
       this.shapes.pistol.draw(context, program_state, pistol_transform,
           this.materials.metal.override( { color: [128/255, 128/255, 128/255, 1] }));
     }
