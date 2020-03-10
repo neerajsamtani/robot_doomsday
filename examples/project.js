@@ -11,6 +11,7 @@ let g_cam_looking_at = vec3(NaN, NaN, NaN);
 let g_x_ccs = vec3(-1, 0, 0);
 let g_z_ccs = vec3(0, 0, -1);
 let g_z_rot = Math.PI;
+let x_rotation_angle = 0;
 
 const FPS_Controls =
 class FPS_Controls extends defs.Movement_Controls
@@ -95,9 +96,9 @@ class FPS_Controls extends defs.Movement_Controls
       this.inverse().pre_multiply(horiz_rot);
     }
 
-    console.log(`CamZ: (${this.matrix()[0][2].toFixed(2)},
-    ${this.matrix()[1][2].toFixed(2)},
-    ${this.matrix()[2][2].toFixed(2)})`);
+    // console.log(`CamZ: (${this.matrix()[0][2].toFixed(2)},
+    // ${this.matrix()[1][2].toFixed(2)},
+    // ${this.matrix()[2][2].toFixed(2)})`);
 
     // Change sign of z component because we are looking down the negative z axis.
     let cam = this.inverse();
@@ -363,14 +364,36 @@ export class Project_Base extends Scene
       }
       this.new_line();
       this.live_string ( box => { box.textContent = `Z Angle: ${g_z_rot.toFixed(4)}`; });
+      this.new_line();
+      this.live_string ( box => { box.textContent = `Leader Robot X_T: ${this.robots[0] ? 
+          (this.robots[0].location[0] ? this.robots[0].location[0][3].toFixed(3) : 3) : 0}`; });
+      this.new_line();
+      this.live_string ( box => { box.textContent = `Leader Robot Y_T: ${this.robots[0] ?
+          (this.robots[0].location[1] ? this.robots[0].location[1][3].toFixed(3) : 3) : 0}`; });
+      this.new_line();
+      this.live_string ( box => { box.textContent = `Leader Robot Z_T: ${this.robots[0] ?
+          (this.robots[0].location[2] ? this.robots[0].location[2][3].toFixed(3) : 3) : 0}`; });
+      this.new_line();
 
-      this.robot_kill = 0;
-      this.key_triggered_button( "Kill first robot", [ "m" ], function() { this.robots[this.robot_kill].state = 1; 
-                                                                            this.robots[this.robot_kill].time = this.t; 
-                                                                            this.robots[this.robot_kill].linear_velocity[0] = (Math.random() + 1) * 1.2; 
-                                                                            this.robots[this.robot_kill].linear_velocity[1] = (Math.random() + 1) * 1.2; 
-                                                                            this.robots[this.robot_kill].linear_velocity[2] = (Math.random() + 1) * 1.2; 
-                                                                            this.robot_kill += 1; } );
+      this.key_triggered_button( "Kill a robot", [ "m" ], function() {
+                                                                            let oot = Mat4.identity().times(Mat4.translation(...g_origin_offset));
+                                                                            let index = -1;
+                                                                            for(let i = 0; i < 3; i++)
+                                                                            {
+                                                                              let x_location_diff = oot.times(this.robots[i].location)[0][3];
+                                                                              console.log(x_location_diff);
+                                                                              if (x_location_diff < 1.8 && x_location_diff > -1.8) {
+                                                                                index = i;
+                                                                              }
+                                                                            }
+                                                                            if (index > -1) {
+                                                                              this.robots[index].state = 1;
+                                                                              this.robots[index].time = this.t;
+                                                                              this.robots[index].linear_velocity[0] = (Math.random() + 1) * 1.2;
+                                                                              this.robots[index].linear_velocity[1] = (Math.random() + 1) * 1.2;
+                                                                              this.robots[index].linear_velocity[2] = (Math.random() + 1) * 1.2;
+                                                                            }
+      });
       this.key_triggered_button("switch time of day", ["n"], function ()  {})
     }
 
@@ -384,12 +407,6 @@ export class Project_Base extends Scene
           this.children.push(context.scratchpad.controls = new FPS_Controls());
           // program_state.set_camera( Mat4.translation( 0,0,0 ) );
           program_state.set_camera(Mat4.look_at(vec3(0, 0, 0), vec3(0, 0, 1), vec3(0, 1, 0)));
-
-          // Get player location
-          this.player_x = context.program_state.camera_inverse[0];
-          this.player_y = context.program_state.camera_inverse[1];
-          this.player_z = context.program_state.camera_inverse[2];
-          this.d = context.program_state.camera_inverse[3];
 
           // Spawn all robots
           let robot1 = new Robot();
@@ -415,20 +432,40 @@ export class Project_Base extends Scene
   draw_robot(context, program_state, index)
   {
     let robot_state = this.robots[index].state;
+    let t = program_state.animation_time / 1000;
+    // Variable oot is the origin offset transformation.
+    let oot = Mat4.identity().times(Mat4.translation(...g_origin_offset));
+    //
+    // let x_location_diff = oot.times(this.robots[index].location)[0][3];
+    //
+    // if ((this.robots[index].state === 1 && x_location_diff > 2) ||
+    //     (this.robots[index].state === 1 && x_location_diff < -2)){
+    //   console.log(this.robots[index].location[0][3])
+    //   console.log(this.robot_kill)
+    //   this.robots[index].state = 0;
+    //   this.robot_kill -= 1;
+    // }
+
     // Alive
     if(robot_state == 0){
       // Calculate robot's planned path
-      let x_location_diff = ((-1 * this.player_x[3]) - this.robots[index].location[0][3])/100;
-      let y_location_diff = ((-1 * this.player_y[3]) - this.robots[index].location[1][3])/100;
-      let z_location_diff = ((-1 * this.player_z[3]) - this.robots[index].location[2][3])/100;
+      let x_location_diff = oot.times(this.robots[index].location)[0][3];
+      let y_location_diff = oot.times(this.robots[index].location)[1][3];
+      let z_location_diff = oot.times(this.robots[index].location)[2][3];
       let euclidean_dist = 10 * Math.sqrt(Math.pow(x_location_diff, 2) + Math.pow(z_location_diff, 2));
-      let x_rotation_angle  = 0.005 * Math.atan(x_location_diff/z_location_diff);
+      x_rotation_angle  = Math.atan(x_location_diff/z_location_diff);
 
       // Set robot's planned path
+      // this.robots[index].location = oot.times(this.robots[index].location)
+      //     .times(Mat4.rotation(x_rotation_angle, 0, 1, 0))
+      //     .times(Mat4.translation(x_location_diff/euclidean_dist, 0, z_location_diff/euclidean_dist));
+
+      // Separate translation from rotation
+      // Update the translation globally so that the robots movement is procedural
       this.robots[index].location = this.robots[index].location
-          .times(Mat4.rotation(x_rotation_angle, 0, 1, 0))
-          .times(Mat4.translation(x_location_diff/euclidean_dist, 0, z_location_diff/euclidean_dist));
-      var top_torso_transform = this.robots[index].location;
+          .times(Mat4.translation(-1 * x_location_diff/euclidean_dist, 0, -1 * z_location_diff/euclidean_dist));
+      // Update the rotation locally so that the robots rotation doesn't multiply with itself, causing it to spin like crazy
+      var top_torso_transform = this.robots[index].location.times(Mat4.rotation(x_rotation_angle, 0, 1, 0));
       this.robots[index].torso = top_torso_transform.times(Mat4.translation(0, 0, 0));
       this.robots[index].head = top_torso_transform.times(Mat4.translation(0, 2.9, 0));
       this.robots[index].bottom_torso = top_torso_transform.times(Mat4.rotation(Math.PI, 0, 1, 0))
@@ -443,7 +480,7 @@ export class Project_Base extends Scene
     // Collapse
     else if(robot_state == 1){
       let broken_parts = 0;
-      var top_torso_transform = this.robots[index].location;
+      var top_torso_transform = this.robots[index].location.times(Mat4.rotation(x_rotation_angle, 0, 1, 0));
       let t = (this.t - this.robots[index].time) * 1.5;
       let x = this.robots[index].linear_velocity[0] * t;
       let y = (-1) / 2 * 9.8 * t * t + this.robots[index].linear_velocity[1] * t;
@@ -500,9 +537,6 @@ export class Project_Base extends Scene
     }
 
     // Draw Robot at robot_center
-
-    // Variable oot is the origin offset transformation.
-    let oot = Mat4.identity().times(Mat4.translation(...g_origin_offset));
     this.shapes.head.draw( context, program_state, oot.times(this.robots[index].head), this.materials.robot_texture);
     this.shapes.top_torso.draw( context, program_state, oot.times(this.robots[index].torso), this.materials.robot_texture);
     this.shapes.bottom_torso.draw( context, program_state, oot.times(this.robots[index].bottom_torso), this.materials.robot_texture);
@@ -587,11 +621,6 @@ export class Project extends Project_Base
       //   console.log("Robot: ", this.robot_location);
       // }
 
-      // Get Player's x, y, and z coordinates
-      this.player_x = context.program_state.camera_inverse[0];
-      this.player_y = context.program_state.camera_inverse[1];
-      this.player_z = context.program_state.camera_inverse[2];
-
       // Ensure player cannot move in y-space
       // context.program_state.camera_inverse = Mat4.translation(this.player_x[3], 0, this.player_z[3]);
       for(let a of this.robots){
@@ -599,7 +628,7 @@ export class Project extends Project_Base
         if(a.state != 0)
           continue;
         for(let b of this.robots){
-          console.log(b);
+          // console.log(b);
           if(a != b && b.state != 0)
             continue;
           if(!a.check_if_colliding(b))
@@ -620,11 +649,24 @@ export class Project extends Project_Base
       this.draw_environment(context, program_state, model_transform);
 
       let pistol_transform = Mat4.identity()
-          .times(Mat4.rotation(g_z_rot, 0, 1, 0))
+          //.times(Mat4.rotation(g_z_rot, 0, 1, 0))
           .times(Mat4.translation(1.5, -0.9, -3))
           .times(Mat4.rotation(-4 * Math.PI / 8, 0, 1, 0))
           //.times(Mat4.rotation(Math.PI / 2, 1, 0, 0))
           .times(Mat4.scale(.4, .4, .4));
+      // this.shapes.pistol.draw(context, program_state, pistol_transform,
+      //     this.materials.metal.override( { color: [128/255, 128/255, 128/255, 1] }));
+
+      let crosshair_top_transform = Mat4.identity().times(Mat4.translation(0, 0.05, -1.5)).times(Mat4.scale(0.005, 0.02, 0.01))
+      let crosshair_bottom_transform = Mat4.identity().times(Mat4.translation(0, -0.05, -1.5)).times(Mat4.scale(0.005, 0.02, 0.01))
+      let crosshair_left_transform = Mat4.identity().times(Mat4.translation(-0.05, 0, -1.5)).times(Mat4.scale(0.02, 0.005, 0.01))
+      let crosshair_right_transform = Mat4.identity().times(Mat4.translation(0.05, 0, -1.5)).times(Mat4.scale(0.02, 0.005, 0.01))
+
+      this.shapes.box.draw(context, program_state, crosshair_top_transform, this.materials.plastic.override({color:[1, 0, 0, 1]}));
+      this.shapes.box.draw(context, program_state, crosshair_bottom_transform, this.materials.plastic.override({color:[1, 0, 0, 1]}));
+      this.shapes.box.draw(context, program_state, crosshair_left_transform, this.materials.plastic.override({color:[1, 0, 0, 1]}));
+      this.shapes.box.draw(context, program_state, crosshair_right_transform, this.materials.plastic.override({color:[1, 0, 0, 1]}));
+
       this.shapes.pistol.draw(context, program_state, pistol_transform,
           this.materials.metal.override( { color: [128/255, 128/255, 128/255, 1] }));
     }
