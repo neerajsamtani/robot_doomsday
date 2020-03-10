@@ -303,8 +303,10 @@ export class Project_Base extends Scene
                         tree_leaves: new Material(phong, { ambient: .2, diffusivity: 1, specularity: .5, color: color( 0, 0.9, .1,1 ) } ),
                         tree_trunk: new Material(phong, {ambient: .2, diffusivity: 1, specularity: .5, color: color(0.9, 0.4, 0.1, 1)}),
                         rock: new Material(textured, {ambient: 1, specularity: 1, texture: new Texture( "assets/rock.png" ), color: color(0, 0, 0, 1)}),
-                        water: new Material(textured, {ambient: 0.7, specularity: 1, texture: new Texture("assets/water.jpg"), color: color( 0,0,0,1 )})};
+                        water: new Material(textured, {ambient: 0.7, specularity: 1, texture: new Texture("assets/water.jpg"), color: color( 0,0,0,1 )}),
+                        night_sky: new Material(textured, {ambient: 1, specularity: 0.1, texture: new Texture("assets/starrysky.png"), color: color(0, 0, 0, 1)})};
 
+      this.time_of_day = "day";
       this.random_x = []
       this.random_z = []
       var theta = 0;
@@ -315,6 +317,8 @@ export class Project_Base extends Scene
         this.random_z.push(R*Math.sin(theta));
         theta += 0.174533
       }
+      this.night_lights =  [ new Light( vec4(0, -1, 1, 0), color(1, 1, 1, 1), 1)]
+      this.day_lights = [new Light( vec4( 0,-1,1,0 ), color( 1,1,1,1 ), 10000 )]
     }
   make_control_panel()
     {                                 // make_control_panel(): Sets up a panel of interactive HTML elements, including
@@ -334,7 +338,13 @@ export class Project_Base extends Scene
                                                                             this.robots[this.robot_kill].linear_velocity[1] = (Math.random() + 1) * 1.2; 
                                                                             this.robots[this.robot_kill].linear_velocity[2] = (Math.random() + 1) * 1.2; 
                                                                             this.robot_kill += 1; } );
-      this.key_triggered_button("switch time of day", ["n"], function ()  {})
+      this.key_triggered_button("switch time of day", ["n"], function ()  {
+        if(this.time_of_day == "day"){
+          this.time_of_day = "night";
+        }else{
+          this.time_of_day = "day";
+        }
+      });
     }
 
   display( context, program_state )
@@ -370,7 +380,10 @@ export class Project_Base extends Scene
       const t = this.t = program_state.animation_time/1000;
       const angle = Math.sin( t );
       //const light_position = Mat4.rotation( angle,   1,0,0 ).times( vec4( 0,-1,1,0 ) );
-      program_state.lights = [ new Light( vec4( 0,-1,1,0 ), color( 1,1,1,1 ), 1000000 ) ];
+      if (this.time_of_day == "day")
+        program_state.lights = this.day_lights;
+      else
+        program_state.lights = this.night_lights;
     }
 
   draw_robot(context, program_state, index)
@@ -463,49 +476,84 @@ export class Project_Base extends Scene
     }
 
     // Draw Robot at robot_center
-    this.shapes.head.draw( context, program_state, this.robots[index].head, this.materials.robot_texture);
-    this.shapes.top_torso.draw( context, program_state, this.robots[index].torso, this.materials.robot_texture);
-    this.shapes.bottom_torso.draw( context, program_state, this.robots[index].bottom_torso, this.materials.robot_texture);
-    this.shapes.left_arm.draw( context, program_state, this.robots[index].left_arm, this.materials.robot_texture);
-    this.shapes.left_hand.draw( context, program_state, this.robots[index].left_hand, this.materials.robot_texture);
-    this.shapes.right_arm.draw( context, program_state, this.robots[index].right_arm, this.materials.robot_texture);
-    this.shapes.right_hand.draw( context, program_state, this.robots[index].right_hand, this.materials.robot_texture);
+    if(this.time_of_day == "day") {
+      this.shapes.head.draw(context, program_state, this.robots[index].head, this.materials.robot_texture);
+      this.shapes.top_torso.draw(context, program_state, this.robots[index].torso, this.materials.robot_texture);
+      this.shapes.bottom_torso.draw(context, program_state, this.robots[index].bottom_torso, this.materials.robot_texture);
+      this.shapes.left_arm.draw(context, program_state, this.robots[index].left_arm, this.materials.robot_texture);
+      this.shapes.left_hand.draw(context, program_state, this.robots[index].left_hand, this.materials.robot_texture);
+      this.shapes.right_arm.draw(context, program_state, this.robots[index].right_arm, this.materials.robot_texture);
+      this.shapes.right_hand.draw(context, program_state, this.robots[index].right_hand, this.materials.robot_texture);
+    }else{
+      this.shapes.head.draw(context, program_state, this.robots[index].head, this.materials.robot_texture.override({ambient: 0.1}));
+      this.shapes.top_torso.draw(context, program_state, this.robots[index].torso, this.materials.robot_texture.override({ambient: 0.1}));
+      this.shapes.bottom_torso.draw(context, program_state, this.robots[index].bottom_torso, this.materials.robot_texture.override({ambient: 0.1}));
+      this.shapes.left_arm.draw(context, program_state, this.robots[index].left_arm, this.materials.robot_texture.override({ambient: 0.1}));
+      this.shapes.left_hand.draw(context, program_state, this.robots[index].left_hand, this.materials.robot_texture.override({ambient: 0.1}));
+      this.shapes.right_arm.draw(context, program_state, this.robots[index].right_arm, this.materials.robot_texture.override({ambient: 0.1}));
+      this.shapes.right_hand.draw(context, program_state, this.robots[index].right_hand, this.materials.robot_texture.override({ambient: 0.1}));
+    }
   }
 
   //Function to draw the rocks
   draw_trees(context, program_state, model_transform){
     for(var i = 0; i < 36; i+= 1) {
       if (i % 2 == 0) {
-        this.shapes.tree_trunk.draw(context, program_state, model_transform.times(Mat4.translation(this.random_x[i], 0.5, this.random_z[i])), this.materials.tree_trunk);
-        this.shapes.tree_leaves.draw(context, program_state, model_transform.times(Mat4.translation(this.random_x[i], 1.4, this.random_z[i])), this.materials.tree_leaves);
+        if(this.time_of_day == "day") {
+          this.shapes.tree_trunk.draw(context, program_state, model_transform.times(Mat4.translation(this.random_x[i], 0.5, this.random_z[i])), this.materials.tree_trunk);
+          this.shapes.tree_leaves.draw(context, program_state, model_transform.times(Mat4.translation(this.random_x[i], 1.4, this.random_z[i])), this.materials.tree_leaves);
+        }else{
+          this.shapes.tree_trunk.draw(context, program_state, model_transform.times(Mat4.translation(this.random_x[i], 0.5, this.random_z[i])), this.materials.tree_trunk.override({ambient: 0.3}));
+          this.shapes.tree_leaves.draw(context, program_state, model_transform.times(Mat4.translation(this.random_x[i], 1.4, this.random_z[i])), this.materials.tree_leaves.override({ambient: 0.3}));
+        }
       }else{
-        this.shapes.rock.draw(context, program_state, model_transform.times(Mat4.translation(this.random_x[i], -1, this.random_z[i])), this.materials.rock);
+        if(this.time_of_day == "day")
+          this.shapes.rock.draw(context, program_state, model_transform.times(Mat4.translation(this.random_x[i], -1, this.random_z[i])), this.materials.rock);
+        else
+          this.shapes.rock.draw(context, program_state, model_transform.times(Mat4.translation(this.random_x[i], -1, this.random_z[i])), this.materials.rock.override({ambient: 0.5}));
       }
     }
   }
 
   //Function to draw the pond
-  draw_pond(context, program_state, model_transform){
+  draw_pond(context, program_state, model_transform) {
     //Draw water
-    this.r = Mat4.identity().times(Mat4.rotation(Math.PI/2, 1, 0, 0)).times(Mat4.translation(0, 0, 1.7));
-    const random = ( x ) => Math.sin( 1000*x + program_state.animation_time/100 );
-    this.shapes.pond.arrays.position.forEach( (p,i,a) =>
-        a[i] = vec3( p[0], p[1], .15*random( i/a.length ) ) );
+    this.r = Mat4.identity().times(Mat4.rotation(Math.PI / 2, 1, 0, 0)).times(Mat4.translation(0, 0, 1.7));
+    const random = (x) => Math.sin(1000 * x + program_state.animation_time / 100);
+    this.shapes.pond.arrays.position.forEach((p, i, a) =>
+        a[i] = vec3(p[0], p[1], .15 * random(i / a.length)));
     this.shapes.pond.flat_shade();
-    this.shapes.pond.draw( context, program_state, this.r, this.materials.water );
-    this.shapes.pond.copy_onto_graphics_card( context.context, ["position","normal"], false );
+    if(this.time_of_day == "day")
+      this.shapes.pond.draw(context, program_state, this.r, this.materials.water);
+    else
+      this.shapes.pond.draw(context, program_state, this.r, this.materials.water.override({ambient: 0.3}));
+    this.shapes.pond.copy_onto_graphics_card(context.context, ["position", "normal"], false);
 
     //Draw walls
-    this.shapes.wall.draw(context, program_state, model_transform.times(Mat4.scale(4, 0.5, 0.2)).times(Mat4.translation(-1.5, -4.0, -9.8)), this.materials.rock);
-    this.shapes.wall.draw(context, program_state, model_transform.times(Mat4.rotation(Math.PI/2, 0, 1, 0)).times(Mat4.scale(4, 0.5, 0.2)).times(Mat4.translation(1.44, -4.0, -9)), this.materials.rock);
-    this.shapes.wall.draw(context, program_state, model_transform.times(Mat4.scale(4.2, 0.5, 0.2)).times(Mat4.translation(-1.4, -4.0, -49.8)), this.materials.rock);
-    this.shapes.wall.draw(context, program_state, model_transform.times(Mat4.rotation(Math.PI/2, 0, 1, 0)).times(Mat4.scale(4, 0.5, 0.2)).times(Mat4.translation(1.44, -4.0, -49.5)), this.materials.rock);
+    if (this.time_of_day == "day") {
+      this.shapes.wall.draw(context, program_state, model_transform.times(Mat4.scale(4, 0.5, 0.2)).times(Mat4.translation(-1.5, -4.0, -9.8)), this.materials.rock);
+      this.shapes.wall.draw(context, program_state, model_transform.times(Mat4.rotation(Math.PI / 2, 0, 1, 0)).times(Mat4.scale(4, 0.5, 0.2)).times(Mat4.translation(1.44, -4.0, -9)), this.materials.rock);
+      this.shapes.wall.draw(context, program_state, model_transform.times(Mat4.scale(4.2, 0.5, 0.2)).times(Mat4.translation(-1.4, -4.0, -49.8)), this.materials.rock);
+      this.shapes.wall.draw(context, program_state, model_transform.times(Mat4.rotation(Math.PI / 2, 0, 1, 0)).times(Mat4.scale(4, 0.5, 0.2)).times(Mat4.translation(1.44, -4.0, -49.5)), this.materials.rock);
+    }else{
+      this.shapes.wall.draw(context, program_state, model_transform.times(Mat4.scale(4, 0.5, 0.2)).times(Mat4.translation(-1.5, -4.0, -9.8)), this.materials.rock.override({ambient: 0.5}));
+      this.shapes.wall.draw(context, program_state, model_transform.times(Mat4.rotation(Math.PI / 2, 0, 1, 0)).times(Mat4.scale(4, 0.5, 0.2)).times(Mat4.translation(1.44, -4.0, -9)), this.materials.rock.override({ambient: 0.5}));
+      this.shapes.wall.draw(context, program_state, model_transform.times(Mat4.scale(4.2, 0.5, 0.2)).times(Mat4.translation(-1.4, -4.0, -49.8)), this.materials.rock.override({ambient: 0.5}));
+      this.shapes.wall.draw(context, program_state, model_transform.times(Mat4.rotation(Math.PI / 2, 0, 1, 0)).times(Mat4.scale(4, 0.5, 0.2)).times(Mat4.translation(1.44, -4.0, -49.5)), this.materials.rock.override({ambient: 0.5}));
+    }
   }
 
   //Function to draw the environment
   draw_environment(context, program_state, model_transform){
-    this.shapes.ground.draw(context, program_state, model_transform.times(Mat4.rotation(Math.PI/2, 1, 0, 0)).times(Mat4.translation(0, 0, 2.3)).times(Mat4.scale(50, 50, 0.5)), this.materials.ground);
-    this.shapes.skybox.draw(context, program_state, model_transform.times(Mat4.rotation(Math.PI/2, 1, 0, 0)).times(Mat4.scale(60, 60, 60)), this.materials.sky);
+    if(this.time_of_day=="day")
+      this.shapes.ground.draw(context, program_state, model_transform.times(Mat4.rotation(Math.PI/2, 1, 0, 0)).times(Mat4.translation(0, 0, 2.3)).times(Mat4.scale(50, 50, 0.5)), this.materials.ground);
+    else
+      this.shapes.ground.draw(context, program_state, model_transform.times(Mat4.rotation(Math.PI/2, 1, 0, 0)).times(Mat4.translation(0, 0, 2.3)).times(Mat4.scale(50, 50, 0.5)), this.materials.ground.override({ambient: 0.5}));
+    if(this.time_of_day == "day") {
+      this.shapes.skybox.draw(context, program_state, model_transform.times(Mat4.rotation(Math.PI / 2, 1, 0, 0)).times(Mat4.scale(60, 60, 60)), this.materials.sky);
+    } else{
+      this.shapes.skybox.draw(context, program_state, model_transform.times(Mat4.rotation(Math.PI / 2, 1, 0, 0)).times(Mat4.scale(60, 60, 60)), this.materials.night_sky);
+    }
     this.draw_trees(context, program_state, model_transform);
     this.draw_pond(context, program_state, model_transform);
   }
