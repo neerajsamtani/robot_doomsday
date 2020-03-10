@@ -12,6 +12,9 @@ let g_x_ccs = vec3(-1, 0, 0);
 let g_z_ccs = vec3(0, 0, -1);
 let g_z_rot = Math.PI;
 let x_rotation_angle = 0;
+let next_spawn_location = 0;
+let spawn_locations = [vec3(0, 0.3, 25), vec3(25, 0.3, 0), vec3(-25, 0.3, 0)];
+let max_robots = 6
 
 const FPS_Controls =
 class FPS_Controls extends defs.Movement_Controls
@@ -397,12 +400,15 @@ export class Project_Base extends Scene
       this.key_triggered_button( "Kill a robot", [ "m" ], function() {
                                                                             let oot = Mat4.identity().times(Mat4.translation(...g_origin_offset));
                                                                             let index = -1;
-                                                                            for(let i = 0; i < 3; i++)
+                                                                            for(let i = 0; i < this.robots.length; i++)
                                                                             {
-                                                                              let x_location_diff = oot.times(this.robots[i].location)[0][3];
-                                                                              console.log(x_location_diff);
-                                                                              if (x_location_diff < 1.8 && x_location_diff > -1.8) {
-                                                                                index = i;
+                                                                              if (this.robots[i].state == 0)
+                                                                              {
+                                                                                let x_location_diff = oot.times(this.robots[i].location)[0][3];
+                                                                                if (x_location_diff < 1.8 && x_location_diff > -1.8) {
+                                                                                  index = i;
+                                                                                  break;
+                                                                                }
                                                                               }
                                                                             }
                                                                             if (index > -1) {
@@ -411,6 +417,16 @@ export class Project_Base extends Scene
                                                                               this.robots[index].linear_velocity[0] = (Math.random() + 1) * 1.2;
                                                                               this.robots[index].linear_velocity[1] = (Math.random() + 1) * 1.2;
                                                                               this.robots[index].linear_velocity[2] = (Math.random() + 1) * 1.2;
+                                                                              if (this.robots.length < max_robots)
+                                                                              {
+                                                                                next_spawn_location = (next_spawn_location + 1) % 3;
+                                                                                this.robots.push(new Robot(...spawn_locations[next_spawn_location]));
+                                                                                console.log(this.robots.length)
+                                                                              }
+                                                                              else
+                                                                              {
+                                                                                console.log("WINNER")
+                                                                              }
                                                                             }
       });
       this.key_triggered_button("switch time of day", ["n"], function ()  {})
@@ -457,16 +473,6 @@ export class Project_Base extends Scene
     // Variable oot is the origin offset transformation.
     let oot = Mat4.identity().times(Mat4.translation(...g_origin_offset));
 
-    // let x_location_diff = oot.times(this.robots[index].location)[0][3];
-    //
-    // if ((this.robots[index].state === 1 && x_location_diff > 2) ||
-    //     (this.robots[index].state === 1 && x_location_diff < -2)){
-    //   console.log(this.robots[index].location[0][3])
-    //   console.log(this.robot_kill)
-    //   this.robots[index].state = 0;
-    //   this.robot_kill -= 1;
-    // }
-
     // Alive
     if(robot_state == 0){
       for(let c of this.immovables){
@@ -486,11 +492,6 @@ export class Project_Base extends Scene
       let z_location_diff = oot.times(this.robots[index].location)[2][3];
       let euclidean_dist = 10 * Math.sqrt(Math.pow(x_location_diff, 2) + Math.pow(z_location_diff, 2));
       x_rotation_angle  = Math.atan(x_location_diff/z_location_diff);
-
-      // Set robot's planned path
-      // this.robots[index].location = oot.times(this.robots[index].location)
-      //     .times(Mat4.rotation(x_rotation_angle, 0, 1, 0))
-      //     .times(Mat4.translation(x_location_diff/euclidean_dist, 0, z_location_diff/euclidean_dist));
 
       // Separate translation from rotation
       // Update the translation globally so that the robots movement is procedural
@@ -512,7 +513,9 @@ export class Project_Base extends Scene
 
     // Collapse
     else if(robot_state == 1){
-      var top_torso_transform = this.robots[index].location.times(Mat4.rotation(x_rotation_angle, 0, 1, 0));
+      let broken_parts = 0;
+      // TODO: Fix rotation, possible by uncommenting
+      var top_torso_transform = this.robots[index].location //.times(Mat4.rotation(x_rotation_angle, 0, 1, 0));
       let t = (this.t - this.robots[index].time) * 1.5;
       let x = this.robots[index].linear_velocity[0] * t;
       let y = (-1) / 2 * 9.8 * t * t + this.robots[index].linear_velocity[1] * t;
