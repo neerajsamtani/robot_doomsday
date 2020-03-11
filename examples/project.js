@@ -171,7 +171,7 @@ class Body{
   constructor(x = 0, y = 0, z = 0){
     this.location = Mat4.identity().times(Mat4.translation(x,y,z));
     this.state = 0;
-    this.margin = .5;
+    this.margin = 1;
   }
   intersect_sphere(p, margin = 0){
     return p.dot(p) < 1 + margin;
@@ -180,16 +180,8 @@ class Body{
   check_if_colliding(target){
     if (this == target)
       return false;
-    // const T = this.inverse.times(target.location, Mat4.identity());
-    // let points = new defs.Subdivision_Sphere(2);
-    let e_dist = Math.pow(target.location[0][3] - this.location[0][3], 2) + Math.pow(target.location[2][3] - this.location[2][3], 2);
+    let e_dist = Math.sqrt(Math.pow(target.location[0][3] - this.location[0][3], 2) + Math.pow(target.location[2][3] - this.location[2][3], 2));
     return e_dist < target.margin + this.margin;
-  }
-}
-
-class Laser extends Body{
-  constructor(x, y, z){
-    super(x,y,z);
   }
 }
 
@@ -203,9 +195,14 @@ class Robot extends Body {
   constructor(x, y, z){
     super(x, y, z);
     this.location = this.location.times(Mat4.scale(0.5, 0.5, 0.5))
-    this.margin = 1.5 + this.state;
+    this.margin = 1 + .5 * this.state;
     this.linear_velocity = [0,0,0];   // Initial Linear Velocity - for explosion of robot
     this.time = 0;                    // Time once start explosion to map Kinematics Properties
+    this.x_diff = 0;
+    this.z_diff = 0;
+    this.e_dist = 1;
+
+    this.bounce_t = 0;
     
     // Body Part Matrix Locations
     this.torso = 0;
@@ -613,6 +610,12 @@ export class Project_Base extends Scene {                                       
       program_state.lights = this.night_lights;
   }
 
+  set_bounce(b, x, z){
+    b.bounce_t = 1;
+    b.x_diff = x;
+    b.z_diff = z;
+  }
+
   set_collapse(b) {
     b.state = 1;
     b.time = this.t;
@@ -628,13 +631,17 @@ export class Project_Base extends Scene {                                       
     let oot = Mat4.identity()
         .times(Mat4.rotation(g_z_rot, 0, 1, 0))
         .times(Mat4.translation(...g_origin_offset));
-    this.robots[index].inverse = Mat4.inverse(this.robots[index].location);
-
+   
     // Calculate robot's planned path
-    let x_location_diff = Mat4.translation(...g_origin_offset).times(this.robots[index].location)[0][3];
-    let y_location_diff = this.robots[index].location.times(Mat4.translation(...g_origin_offset))[1][3];
-    let z_location_diff = Mat4.translation(...g_origin_offset).times(this.robots[index].location)[2][3];
-    let euclidean_dist = Math.sqrt(Math.pow(x_location_diff, 2) + Math.pow(z_location_diff, 2));
+    if(this.robots[index].bounce_t == 0){
+      this.robots[index].x_diff = Mat4.translation(...g_origin_offset).times(this.robots[index].location)[0][3];
+      this.robots[index].z_diff = Mat4.translation(...g_origin_offset).times(this.robots[index].location)[2][3];
+      this.robots[index].e_dist = Math.sqrt(Math.pow(this.robots[index].x_diff, 2) + Math.pow(this.robots[index].z_diff, 2));
+    }
+
+    let x_location_diff = this.robots[index].x_diff;
+    let z_location_diff = this.robots[index].z_diff;
+    let euclidean_dist = this.robots[index].e_dist ? this.robots[index].e_dist : 1;
 
     // Prevent robot from flipping 180 degrees when out of the range of Math.atan
     if (x_location_diff > 0 && z_location_diff > 0)
@@ -647,26 +654,37 @@ export class Project_Base extends Scene {                                       
     // Alive
     if (robot_state == 0) {
       // Check how close the robot is to the player
-      this.robots[index].euclidean_dist = euclidean_dist;
+      //this.robots[index].euclidean_dist = euclidean_dist;
       // Find the closest robot. Allows the player to die
       if (euclidean_dist < closest_robot_dist)
         closest_robot_dist = euclidean_dist;
 
       for (let c of this.immovables) {
-        if (this.robots[index].check_if_colliding(c))
-          this.set_collapse(this.robots[index]);
+        if (this.robots[index].check_if_colliding(c) && this.robots[index].bounce_t == 0)
+        this.robots[index].bounce_t = 1;
       }
       for (let b of this.robots) {
         // console.log(b);
-        if (this.robots[index] != b && b.state != 0 || !this.robots[index].check_if_colliding(b))
-          continue;
-        this.set_collapse(b);
+        if (this.robots[index] != b && b.state == 0 && this.robots[index].check_if_colliding(b) && this.robots[index].bounce_t == 0)
+          this.robots[index].bounce_t = 1;
       }
 
-      // Separate translation from rotation
-      // Update the translation globally so that the robots movement is procedural
-      this.robots[index].location = this.robots[index].location
-          .times(Mat4.translation(-1 * x_location_diff / (10 * euclidean_dist), 0, -1 * z_location_diff / (10 * euclidean_dist)));
+      if(this.robots[index].bounce_t == 0){
+        // Separate translation from rotation
+        // Update the translation globally so that the robots movement is procedural
+        this.robots[index].location = this.robots[index].location
+            .times(Mat4.translation(-1 * x_location_diff / (10 * euclidean_dist), 0, -1 * z_location_diff / (10 * euclidean_dist)));
+      }else{
+        console.log(x_location_diff);
+        this.robots[index].location = this.robots[index].location
+            .times(Mat4.translation(1 * x_location_diff / ( 10 * euclidean_dist), 0,  1 * z_location_diff / (10* euclidean_dist)));
+        console.log(this.robots);
+        this.robots[index].bounce_t+=1;
+      }
+
+      if(this.robots[index].bounce_t >= 20)
+        this.robots[index].bounce_t = 0;
+
       // Update the rotation locally so that the robots rotation doesn't multiply with itself, causing it to spin like crazy
       var top_torso_transform = this.robots[index].location.times(Mat4.rotation(x_rotation_angle, 0, 1, 0));
       this.robots[index].torso = top_torso_transform.times(Mat4.translation(0, 0, 0));
