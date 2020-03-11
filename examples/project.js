@@ -378,7 +378,7 @@ export class Project_Base extends Scene {                                       
     this.night_lights = [new Light(vec4(0, -1, 1, 0), color(1, 1, 1, 1), 1)]
     this.day_lights = [new Light(vec4(0, -1, 1, 0), color(1, 1, 1, 1), 10000)]
 
-    this.fired_bullet = false;
+    this.fired_bullet = true;
     this.pistol_transform = Mat4.identity();
     this.bullet_transform = this.pistol_transform;
   }
@@ -815,11 +815,9 @@ export class Project extends Project_Base
           this.bullet_transform = this.pistol_transform;
           this.fired_bullet = false
         }else{
-          this.bullet_transform = this.bullet_transform.times(Mat4.translation(-5, 0.03, 0.1 * program_state.camera_transform[2][2]));
-          this.shapes.box.draw(context, program_state, this.bullet_transform.times(Mat4.scale(1, 0.1, 0.1)), this.materials.plastic.override({color: color(1, 0, 0, 1), specularity: 1, ambient: 1}));
+          this.bullet_transform = this.bullet_transform.times(Mat4.translation(-10, 0.03, 0.1 * program_state.camera_transform[2][2]));
+          this.shapes.box.draw(context, program_state, this.bullet_transform.times(Mat4.scale(3, 0.1, 0.1)), this.materials.plastic.override({color: color(1, 0, 0, 1), specularity: 1, ambient: 1}));
         }
-      }else{
-        console.log("HERE");
       }
 
       let crosshair_top_transform = Mat4.identity().times(Mat4.translation(0, 0.05, -1.5)).times(Mat4.scale(0.005, 0.02, 0.01))
