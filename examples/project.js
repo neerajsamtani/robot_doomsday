@@ -635,10 +635,7 @@ export class Project_Base extends Scene {                                       
     let y_location_diff = this.robots[index].location.times(Mat4.translation(...g_origin_offset))[1][3];
     let z_location_diff = Mat4.translation(...g_origin_offset).times(this.robots[index].location)[2][3];
     let euclidean_dist = Math.sqrt(Math.pow(x_location_diff, 2) + Math.pow(z_location_diff, 2));
-    this.robots[index].euclidean_dist = euclidean_dist;
-    // Find the closest robot. Allows the player to die
-    if (euclidean_dist < closest_robot_dist)
-      closest_robot_dist = euclidean_dist
+
     // Prevent robot from flipping 180 degrees when out of the range of Math.atan
     if (x_location_diff > 0 && z_location_diff > 0)
       x_rotation_angle = Math.atan(x_location_diff / z_location_diff) - Math.PI;
@@ -649,6 +646,12 @@ export class Project_Base extends Scene {                                       
 
     // Alive
     if (robot_state == 0) {
+      // Check how close the robot is to the player
+      this.robots[index].euclidean_dist = euclidean_dist;
+      // Find the closest robot. Allows the player to die
+      if (euclidean_dist < closest_robot_dist)
+        closest_robot_dist = euclidean_dist;
+
       for (let c of this.immovables) {
         if (this.robots[index].check_if_colliding(c))
           this.set_collapse(this.robots[index]);
@@ -680,8 +683,8 @@ export class Project_Base extends Scene {                                       
 
     // Collapse
     else if (robot_state == 1) {
+
       let broken_parts = 0;
-      // TODO: Fix rotation
       var top_torso_transform = this.robots[index].location.times(Mat4.rotation(x_rotation_angle, 0, 1, 0));
       let t = (this.t - this.robots[index].time) * 1.5;
       let x = this.robots[index].linear_velocity[0] * t;
