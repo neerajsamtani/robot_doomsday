@@ -13,8 +13,8 @@ let g_z_ccs = vec3(0, 0, 1);
 let g_z_rot = 0;
 let x_rotation_angle = 0;
 let next_spawn_location = 0;
-let spawn_locations = [vec3(0, 0.3, 25), vec3(25, 0.3, 0), vec3(-25, 0.3, 0)];
-let max_robots = 15;
+let spawn_locations = [vec3(0, 0.3, 25), vec3(25, 0.3, 0), vec3(-25, 0.3, 0), vec3(10, 0.3, 25), vec3(25, 0.3, -10), vec3(-25, 0.3, 10)];
+let max_robots = 11;
 let kills = 0;
 let closest_robot_dist = 999999;
 let g_pseudo_cam = Mat4.look_at(vec3(0, 0, 0), vec3(0, 0, -1), vec3(0, 1, 0));
@@ -571,12 +571,14 @@ export class Project_Base extends Scene {                                       
         this.robots[index].linear_velocity[1] = (Math.random() + 1) * 1.2;
         this.robots[index].linear_velocity[2] = (Math.random() + 1) * 1.2;
         if (this.robots.length < max_robots) {
-          next_spawn_location = (next_spawn_location + 1) % 3;
+          next_spawn_location = (next_spawn_location + 1) % 6;
           this.robots.push(new Robot(...spawn_locations[next_spawn_location]));
           kills += 1;
           console.log(kills);
         } else {
           // TODO: Winning mechanic
+          kills += 1;
+          console.log(kills);
           console.log("WINNER")
         }
       }
@@ -683,10 +685,10 @@ export class Project_Base extends Scene {                                       
         this.robots[index].location = this.robots[index].location
             .times(Mat4.translation(-1 * x_location_diff / (10 * euclidean_dist), 0, -1 * z_location_diff / (10 * euclidean_dist)));
       }else{
-        console.log(x_location_diff);
+        // console.log(x_location_diff);
         this.robots[index].location = this.robots[index].location
             .times(Mat4.translation(1 * x_location_diff / ( 10 * euclidean_dist), 0,  1 * z_location_diff / (10* euclidean_dist)));
-        console.log(this.robots);
+        // console.log(this.robots);
         this.robots[index].bounce_t+=1;
       }
 
@@ -898,7 +900,8 @@ export class Project_Base extends Scene {                                       
           .times(Mat4.rotation(g_z_rot, 0, 1, 0))
           .times(Mat4.translation(...g_origin_offset))
           .times(Mat4.rotation(Math.PI / 2, 1, 0, 0))
-          .times(Mat4.scale(60, 60, 60));
+          .times(Mat4.scale(60, 60, 60))
+          .times(Mat4.rotation(this.t/50, 0, 1, 0));
       if (this.time_of_day == "day")
         this.shapes.ground.draw(context, program_state, ground_transform, this.materials.ground);
       else
