@@ -14,8 +14,9 @@ let g_z_rot = 0;
 let x_rotation_angle = 0;
 let next_spawn_location = 0;
 let spawn_locations = [vec3(0, 0.3, 25), vec3(25, 0.3, 0), vec3(-25, 0.3, 0)];
-let max_robots = 10;
+let max_robots = 15;
 let kills = 0;
+let closest_robot_dist = 999999;
 let g_pseudo_cam = Mat4.look_at(vec3(0, 0, 0), vec3(0, 0, -1), vec3(0, 1, 0));
 let g_immovable_objs = [];
 
@@ -223,6 +224,7 @@ class Robot extends Body {
     this.arm_prop = [0,0];
 
     this.broken_parts = 0;
+    this.euclidean_dist = 0;
   }
 }
 
@@ -633,6 +635,10 @@ export class Project_Base extends Scene {                                       
     let y_location_diff = this.robots[index].location.times(Mat4.translation(...g_origin_offset))[1][3];
     let z_location_diff = Mat4.translation(...g_origin_offset).times(this.robots[index].location)[2][3];
     let euclidean_dist = Math.sqrt(Math.pow(x_location_diff, 2) + Math.pow(z_location_diff, 2));
+    this.robots[index].euclidean_dist = euclidean_dist;
+    // Find the closest robot. Allows the player to die
+    if (euclidean_dist < closest_robot_dist)
+      closest_robot_dist = euclidean_dist
     // Prevent robot from flipping 180 degrees when out of the range of Math.atan
     if (x_location_diff > 0 && z_location_diff > 0)
       x_rotation_angle = Math.atan(x_location_diff / z_location_diff) - Math.PI;
@@ -888,7 +894,12 @@ export class Project extends Project_Base
       const t = this.t = program_state.animation_time/1000;
       //this.robots = this.robots.filter( b => b.state != 2);
 
-      if (kills < max_robots && kills <= 10) {
+      // Check if player is dead
+      if (closest_robot_dist < 4){
+        this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(2, 2, 2)).times(Mat4.translation(0, 0, -1)), this.materials.game_over);
+      }
+      // If player is alive
+      else if (kills < max_robots && kills <= 10) {
         // Draw robot
         for (var i = 0; i < this.robots.length; i++)
           this.draw_robot(context, program_state, i);
@@ -943,6 +954,7 @@ export class Project extends Project_Base
         else if(kills == 10)
            this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(1, 1, 1)).times(Mat4.translation(0.1, 0, -0.5)), this.materials.score10);
       }
+      // If player wins
       else
         this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(2, 2, 2)).times(Mat4.translation(0, 0, -1)), this.materials.winner);
     }
