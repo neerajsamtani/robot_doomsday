@@ -62,14 +62,27 @@ class FPS_Controls extends defs.Movement_Controls
     // accommodate for this.thrust[1] which is the axis.
     // The thrust values are subtracted from the g_origin_offset because we want the
     // objects to do the opposite of what I'm doing so it looks as if the cam is moving.
+    let future_origin_offset = vec3(NaN, NaN, NaN);
+    Object.assign(future_origin_offset, g_origin_offset);
+
     if (this.thrust[0] !== 0) {
-      g_origin_offset[0] += 1 * this.thrust[0] * g_x_ccs[0] * .1;
-      g_origin_offset[2] += 1 * this.thrust[0] * g_x_ccs[2] * .1;
+      future_origin_offset[0] += 1 * this.thrust[0] * g_x_ccs[0] * .1;
+      future_origin_offset[2] += 1 * this.thrust[0] * g_x_ccs[2] * .1;
     }
     if (this.thrust[2] !== 0) {
-      g_origin_offset[0] += 1 * this.thrust[2] * g_z_ccs[0] * .1;
-      g_origin_offset[2] += 1 * this.thrust[2] * g_z_ccs[2] * .1;
+      future_origin_offset[0] += 1 * this.thrust[2] * g_z_ccs[0] * .1;
+      future_origin_offset[2] += 1 * this.thrust[2] * g_z_ccs[2] * .1;
     }
+
+    // Prevent the player from going outside the fence.
+    let dist_from_origin = Math.sqrt(future_origin_offset.map(n => n * n).reduce((n, m) => n + m, 0));
+    if (dist_from_origin > 45) {
+      console.log("over!!!");
+      return;
+    }
+
+    // Not outside fence, we are fine, commit the movement change.
+    Object.assign(g_origin_offset, future_origin_offset);
   }
 
   // This function is called whenever the mouse is moved.
@@ -430,8 +443,8 @@ export class Project_Base extends Scene {                                       
     };
 
     this.time_of_day = "day";
-    this.random_x = []
-    this.random_z = []
+    this.random_x = [];
+    this.random_z = [];
     var theta = 0;
     for (var i = 0; i < 36; i += 1) {
       var R = 18 + 28 * Math.random();
@@ -439,10 +452,10 @@ export class Project_Base extends Scene {                                       
       this.random_x.push(R * Math.cos(theta1));
       this.random_z.push(R * Math.sin(theta1));
       this.immovables.push(new Immovable(this.random_x[i], .3, this.random_z[i]));
-      theta += 0.174533
+      theta += 0.174533;
     }
-    this.night_lights = [new Light(vec4(0, -1, 1, 0), color(1, 1, 1, 1), 1)]
-    this.day_lights = [new Light(vec4(0, -1, 1, 0), color(1, 1, 1, 1), 10000)]
+    this.night_lights = [new Light(vec4(0, -1, 1, 0), color(1, 1, 1, 1), 1)];
+    this.day_lights = [new Light(vec4(0, -1, 1, 0), color(1, 1, 1, 1), 10000)];
   }
 
   make_control_panel() {
