@@ -896,7 +896,8 @@ export class Project_Base extends Scene {                                       
           .times(Mat4.rotation(g_z_rot, 0, 1, 0))
           .times(Mat4.translation(...g_origin_offset))
           .times(Mat4.rotation(Math.PI / 2, 1, 0, 0))
-          .times(Mat4.scale(60, 60, 60));
+          .times(Mat4.scale(60, 60, 60))
+          .times(Mat4.rotation(this.t/50, 0, 1, 0));
       if (this.time_of_day == "day")
         this.shapes.ground.draw(context, program_state, ground_transform, this.materials.ground);
       else
