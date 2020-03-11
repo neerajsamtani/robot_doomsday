@@ -90,6 +90,10 @@ class FPS_Controls extends defs.Movement_Controls
     let cur_dist = euclid_dist_xz(g_origin_offset, origin);
 
     for (let [i, o] of g_immovable_objs.entries()) {
+      // I know the pond is added last, and thus last in the immovable object list.
+      // By adding this exception, we allow the user to stand on the pond.
+      if (i === 36)
+        break;
       let o_pos_mat = Mat4.identity().times(Mat4.translation(...g_origin_offset)).times(o.location);
       let o_pos = vec3(o_pos_mat[0][3], o_pos_mat[1][3], o_pos_mat[2][3]);
       let dist = euclid_dist_xz(o_pos, origin);
@@ -476,8 +480,14 @@ export class Project_Base extends Scene {                                       
       theta += 0.174533;
     }
 
-    this.night_lights = [new Light(vec4(0, -1, 1, 0), color(1, 1, 1, 1), 1)]
-    this.day_lights = [new Light(vec4(0, -1, 1, 0), color(1, 1, 1, 1), 10000)]
+    // Pond
+    this.immovables.push(new Immovable(-5, 0, -5, 5));
+
+    // Store reference to array in global variable so I can access in another class.
+    g_immovable_objs = this.immovables;
+
+    this.night_lights = [new Light(vec4(0, -1, 1, 0), color(1, 1, 1, 1), 1)];
+    this.day_lights = [new Light(vec4(0, -1, 1, 0), color(1, 1, 1, 1), 10000)];
 
     this.fired_bullet = true;
     this.pistol_transform = Mat4.identity();
@@ -819,7 +829,6 @@ export class Project_Base extends Scene {                                       
   //Function to draw the pond
   draw_pond(context, program_state, model_transform) {
     //Draw water
-    this.immovables.push(new Immovable(-5, 0, -5, 5))
     let oot = Mat4.identity()
         .times(Mat4.rotation(g_z_rot, 0, 1, 0))
         .times(Mat4.translation(...g_origin_offset));
