@@ -470,9 +470,14 @@ export class Project_Base extends Scene {                                       
       this.immovables.push(new Immovable(this.random_x[i], .3, this.random_z[i]));
       theta += 0.174533;
     }
-    g_immovable_objs = this.immovables;
-    this.night_lights = [new Light(vec4(0, -1, 1, 0), color(1, 1, 1, 1), 1)];
-    this.day_lights = [new Light(vec4(0, -1, 1, 0), color(1, 1, 1, 1), 10000)];
+
+    this.night_lights = [new Light(vec4(0, -1, 1, 0), color(1, 1, 1, 1), 1)]
+    this.day_lights = [new Light(vec4(0, -1, 1, 0), color(1, 1, 1, 1), 10000)]
+
+    this.fired_bullet = true;
+    this.pistol_transform = Mat4.identity();
+    this.bullet_transform = this.pistol_transform;
+
   }
 
   make_control_panel() {
@@ -544,6 +549,7 @@ export class Project_Base extends Scene {                                       
     this.new_line();
 
     this.key_triggered_button("Kill a robot", [" "], function () {
+      this.fired_bullet = true;
       let oot = Mat4.identity()
           .times(Mat4.rotation(g_z_rot, 0, 1, 0))
           .times(Mat4.translation(...g_origin_offset));
@@ -573,6 +579,7 @@ export class Project_Base extends Scene {                                       
           console.log("WINNER")
         }
       }
+
     });
     this.key_triggered_button("switch time of day", ["n"], function () {
       if (this.time_of_day == "day") {
@@ -903,7 +910,8 @@ export class Project_Base extends Scene {                                       
       this.draw_pond(context, program_state, model_transform);
       this.draw_boundary(context, program_state, model_transform);
     }
-  }
+
+}
 
 export class Project extends Project_Base
 {
@@ -914,6 +922,8 @@ export class Project extends Project_Base
       let model_transform = Mat4.identity();
       const t = this.t = program_state.animation_time/1000;
       //this.robots = this.robots.filter( b => b.state != 2);
+
+
 
       // Check if player is dead
       if (closest_robot_dist < 4){
@@ -928,7 +938,7 @@ export class Project extends Project_Base
         // Draw environment
         this.draw_environment(context, program_state, model_transform);
 
-        let pistol_transform = Mat4.identity()
+        this.pistol_transform = Mat4.identity()
             //.times(Mat4.rotation(g_z_rot, 0, 1, 0))
             .times(Mat4.translation(1.5, -0.9, -3))
             .times(Mat4.rotation(-4 * Math.PI / 8, 0, 1, 0))
@@ -936,6 +946,16 @@ export class Project extends Project_Base
             .times(Mat4.scale(.4, .4, .4));
         // this.shapes.pistol.draw(context, program_state, pistol_transform,
         //     this.materials.metal.override( { color: [128/255, 128/255, 128/255, 1] }));
+
+        if(this.fired_bullet){
+          if(this.bullet_transform[0][3] < 0.1){
+            this.bullet_transform = this.pistol_transform;
+            this.fired_bullet = false
+          }else{
+            this.bullet_transform = this.bullet_transform.times(Mat4.translation(-10, 0.03, 0.1 * program_state.camera_transform[2][2]));
+            this.shapes.box.draw(context, program_state, this.bullet_transform.times(Mat4.scale(3, 0.1, 0.1)), this.materials.plastic.override({color: color(1, 0, 0, 1), specularity: 1, ambient: 1}));
+          }
+        }
 
         let crosshair_top_transform = Mat4.identity().times(Mat4.translation(0, 0.05, -1.5)).times(Mat4.scale(0.005, 0.02, 0.01))
         let crosshair_bottom_transform = Mat4.identity().times(Mat4.translation(0, -0.05, -1.5)).times(Mat4.scale(0.005, 0.02, 0.01))
@@ -948,7 +968,7 @@ export class Project extends Project_Base
         this.shapes.box.draw(context, program_state, crosshair_right_transform, this.materials.plastic.override({color: [1, 0, 0, 1]}));
 
         // TODO: Fix pistol shading.
-        this.shapes.pistol.draw(context, program_state, pistol_transform,
+        this.shapes.pistol.draw(context, program_state, this.pistol_transform,
             this.materials.metal.override({color: [128 / 255, 128 / 255, 128 / 255, 1]}));
 
         // TODO: Implement playing dying mechanic
@@ -978,5 +998,6 @@ export class Project extends Project_Base
       // If player wins
       else
         this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(2, 2, 2)).times(Mat4.translation(0, 0, -1)), this.materials.winner);
+
     }
 }
