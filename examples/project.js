@@ -186,8 +186,9 @@ class Body{
 }
 
 class Immovable extends Body{
-  constructor(x, y, z){
+  constructor(x, y, z, m = 1){
     super(x, y, z);
+    this.margin = m;
   }
 }
 
@@ -195,7 +196,7 @@ class Robot extends Body {
   constructor(x, y, z){
     super(x, y, z);
     this.location = this.location.times(Mat4.scale(0.5, 0.5, 0.5))
-    this.margin = 1 + .5 * this.state;
+    this.margin = 1 + this.state;
     this.linear_velocity = [0,0,0];   // Initial Linear Velocity - for explosion of robot
     this.time = 0;                    // Time once start explosion to map Kinematics Properties
     this.x_diff = 0;
@@ -674,7 +675,7 @@ export class Project_Base extends Scene {                                       
       }
       for (let b of this.robots) {
         // console.log(b);
-        if (this.robots[index] != b && b.state == 0 && this.robots[index].check_if_colliding(b) && this.robots[index].bounce_t == 0)
+        if (this.robots[index] != b && this.robots[index].check_if_colliding(b) && this.robots[index].bounce_t == 0)
           this.robots[index].bounce_t = 1;
       }
 
@@ -814,6 +815,7 @@ export class Project_Base extends Scene {                                       
   //Function to draw the pond
   draw_pond(context, program_state, model_transform) {
     //Draw water
+    this.immovables.push(new Immovable(-5, 0, -5, 5))
     let oot = Mat4.identity()
         .times(Mat4.rotation(g_z_rot, 0, 1, 0))
         .times(Mat4.translation(...g_origin_offset));
@@ -924,9 +926,6 @@ export class Project extends Project_Base
       super.display( context, program_state );
       let model_transform = Mat4.identity();
       const t = this.t = program_state.animation_time/1000;
-      //this.robots = this.robots.filter( b => b.state != 2);
-
-
 
       // Check if player is dead
       if (closest_robot_dist < 4){
