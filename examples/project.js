@@ -17,6 +17,7 @@ let spawn_locations = [vec3(0, 0.3, 25), vec3(25, 0.3, 0), vec3(-25, 0.3, 0)];
 let max_robots = 10;
 let kills = 0;
 let g_pseudo_cam = Mat4.look_at(vec3(0, 0, 0), vec3(0, 0, -1), vec3(0, 1, 0));
+let g_immovable_objs = [];
 
 const FPS_Controls =
 class FPS_Controls extends defs.Movement_Controls
@@ -74,10 +75,26 @@ class FPS_Controls extends defs.Movement_Controls
       future_origin_offset[2] += 1 * this.thrust[2] * g_z_ccs[2] * .1;
     }
 
-    // Prevent the player from going outside the fence.
-    let dist_from_origin = Math.sqrt(future_origin_offset.map(n => n * n).reduce((n, m) => n + m, 0));
-    if (dist_from_origin > 45) {
-      console.log("over!!!");
+    // Prevent the player from running into solid objects.
+    const origin = vec3(0, 0, 0);
+    const euclid_dist_xz = (p, q) => {
+      return Math.sqrt(Math.pow(p[0] - q[0], 2) +
+          Math.pow( p[2] - q[2], 2));
+    };
+    let future_dist = euclid_dist_xz(future_origin_offset, origin);
+    let cur_dist = euclid_dist_xz(g_origin_offset, origin);
+
+    for (let [i, o] of g_immovable_objs.entries()) {
+      let o_pos_mat = Mat4.identity().times(Mat4.translation(...g_origin_offset)).times(o.location);
+      let o_pos = vec3(o_pos_mat[0][3], o_pos_mat[1][3], o_pos_mat[2][3]);
+      let dist = euclid_dist_xz(o_pos, origin);
+      // The future_dist and cur_dist comparison make it so we can "unwedge" ourselves.
+      if (dist < o.margin * 5  && future_dist > cur_dist) {
+        return;
+      }
+    }
+    // Prevent the player from running off the map.
+    if (future_dist > 45) {
       return;
     }
 
@@ -454,6 +471,7 @@ export class Project_Base extends Scene {                                       
       this.immovables.push(new Immovable(this.random_x[i], .3, this.random_z[i]));
       theta += 0.174533;
     }
+    g_immovable_objs = this.immovables;
     this.night_lights = [new Light(vec4(0, -1, 1, 0), color(1, 1, 1, 1), 1)];
     this.day_lights = [new Light(vec4(0, -1, 1, 0), color(1, 1, 1, 1), 10000)];
   }
