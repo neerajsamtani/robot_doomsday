@@ -14,7 +14,8 @@ let g_z_rot = 0;
 let x_rotation_angle = 0;
 let next_spawn_location = 0;
 let spawn_locations = [vec3(0, 0.3, 25), vec3(25, 0.3, 0), vec3(-25, 0.3, 0)];
-let max_robots = 6
+let max_robots = 10;
+let kills = 0;
 let g_pseudo_cam = Mat4.look_at(vec3(0, 0, 0), vec3(0, 0, -1), vec3(0, 1, 0));
 
 const FPS_Controls =
@@ -360,7 +361,72 @@ export class Project_Base extends Scene {                                       
         specularity: 0.1,
         texture: new Texture("assets/starrysky.png"),
         color: color(0, 0, 0, 1)
-      })
+      }),
+      score0: new Material(textured, {
+        ambient: 1,
+        texture: new Texture("assets/0.png"),
+        color: color(0, 0, 0, 1)
+      }),
+      score1: new Material(textured, {
+        ambient: 1,
+        texture: new Texture("assets/1.png"),
+        color: color(0, 0, 0, 1)
+      }),
+      score2: new Material(textured, {
+        ambient: 1,
+        texture: new Texture("assets/2.png"),
+        color: color(0, 0, 0, 1)
+      }),
+      score3: new Material(textured, {
+        ambient: 1,
+        texture: new Texture("assets/3.png"),
+        color: color(0, 0, 0, 1)
+      }),
+      score4: new Material(textured, {
+        ambient: 1,
+        texture: new Texture("assets/4.png"),
+        color: color(0, 0, 0, 1)
+      }),
+      score5: new Material(textured, {
+        ambient: 1,
+        texture: new Texture("assets/5.png"),
+        color: color(0, 0, 0, 1)
+      }),
+      score6: new Material(textured, {
+        ambient: 1,
+        texture: new Texture("assets/6.png"),
+        color: color(0, 0, 0, 1)
+      }),
+      score7: new Material(textured, {
+        ambient: 1,
+        texture: new Texture("assets/7.png"),
+        color: color(0, 0, 0, 1)
+      }),
+      score8: new Material(textured, {
+        ambient: 1,
+        texture: new Texture("assets/8.png"),
+        color: color(0, 0, 0, 1)
+      }),
+      score9: new Material(textured, {
+        ambient: 1,
+        texture: new Texture("assets/9.png"),
+        color: color(0, 0, 0, 1)
+      }),
+      score10: new Material(textured, {
+        ambient: 1,
+        texture: new Texture("assets/10.png"),
+        color: color(0, 0, 0, 1)
+      }),
+      winner: new Material(textured, {
+        ambient: 1,
+        texture: new Texture("assets/winner.png"),
+        color: color(0, 0, 0, 1)
+      }),
+      game_over: new Material(textured, {
+        ambient: 1,
+        texture: new Texture("assets/game_over.png"),
+        color: color(0, 0, 0, 1)
+      }),
     };
 
     this.time_of_day = "day";
@@ -470,7 +536,10 @@ export class Project_Base extends Scene {                                       
         if (this.robots.length < max_robots) {
           next_spawn_location = (next_spawn_location + 1) % 3;
           this.robots.push(new Robot(...spawn_locations[next_spawn_location]));
+          kills += 1;
+          console.log(kills);
         } else {
+          // TODO: Winning mechanic
           console.log("WINNER")
         }
       }
@@ -787,34 +856,63 @@ export class Project extends Project_Base
       let model_transform = Mat4.identity();
       const t = this.t = program_state.animation_time/1000;
       //this.robots = this.robots.filter( b => b.state != 2);
-      // Draw robot
-      for (var i = 0; i < this.robots.length; i++)
-        this.draw_robot(context, program_state, i);
 
-      // Draw environment
-      this.draw_environment(context, program_state, model_transform);
+      if (kills < max_robots && kills <= 10) {
+        // Draw robot
+        for (var i = 0; i < this.robots.length; i++)
+          this.draw_robot(context, program_state, i);
 
-      let pistol_transform = Mat4.identity()
-          //.times(Mat4.rotation(g_z_rot, 0, 1, 0))
-          .times(Mat4.translation(1.5, -0.9, -3))
-          .times(Mat4.rotation(-4 * Math.PI / 8, 0, 1, 0))
-          //.times(Mat4.rotation(Math.PI / 2, 1, 0, 0))
-          .times(Mat4.scale(.4, .4, .4));
-      // this.shapes.pistol.draw(context, program_state, pistol_transform,
-      //     this.materials.metal.override( { color: [128/255, 128/255, 128/255, 1] }));
+        // Draw environment
+        this.draw_environment(context, program_state, model_transform);
 
-      let crosshair_top_transform = Mat4.identity().times(Mat4.translation(0, 0.05, -1.5)).times(Mat4.scale(0.005, 0.02, 0.01))
-      let crosshair_bottom_transform = Mat4.identity().times(Mat4.translation(0, -0.05, -1.5)).times(Mat4.scale(0.005, 0.02, 0.01))
-      let crosshair_left_transform = Mat4.identity().times(Mat4.translation(-0.05, 0, -1.5)).times(Mat4.scale(0.02, 0.005, 0.01))
-      let crosshair_right_transform = Mat4.identity().times(Mat4.translation(0.05, 0, -1.5)).times(Mat4.scale(0.02, 0.005, 0.01))
+        let pistol_transform = Mat4.identity()
+            //.times(Mat4.rotation(g_z_rot, 0, 1, 0))
+            .times(Mat4.translation(1.5, -0.9, -3))
+            .times(Mat4.rotation(-4 * Math.PI / 8, 0, 1, 0))
+            //.times(Mat4.rotation(Math.PI / 2, 1, 0, 0))
+            .times(Mat4.scale(.4, .4, .4));
+        // this.shapes.pistol.draw(context, program_state, pistol_transform,
+        //     this.materials.metal.override( { color: [128/255, 128/255, 128/255, 1] }));
 
-      this.shapes.box.draw(context, program_state, crosshair_top_transform, this.materials.plastic.override({color:[1, 0, 0, 1]}));
-      this.shapes.box.draw(context, program_state, crosshair_bottom_transform, this.materials.plastic.override({color:[1, 0, 0, 1]}));
-      this.shapes.box.draw(context, program_state, crosshair_left_transform, this.materials.plastic.override({color:[1, 0, 0, 1]}));
-      this.shapes.box.draw(context, program_state, crosshair_right_transform, this.materials.plastic.override({color:[1, 0, 0, 1]}));
+        let crosshair_top_transform = Mat4.identity().times(Mat4.translation(0, 0.05, -1.5)).times(Mat4.scale(0.005, 0.02, 0.01))
+        let crosshair_bottom_transform = Mat4.identity().times(Mat4.translation(0, -0.05, -1.5)).times(Mat4.scale(0.005, 0.02, 0.01))
+        let crosshair_left_transform = Mat4.identity().times(Mat4.translation(-0.05, 0, -1.5)).times(Mat4.scale(0.02, 0.005, 0.01))
+        let crosshair_right_transform = Mat4.identity().times(Mat4.translation(0.05, 0, -1.5)).times(Mat4.scale(0.02, 0.005, 0.01))
 
-      // TODO: Fix pistol shading.
-      this.shapes.pistol.draw(context, program_state, pistol_transform,
-          this.materials.metal.override( { color: [128/255, 128/255, 128/255, 1] }));
+        this.shapes.box.draw(context, program_state, crosshair_top_transform, this.materials.plastic.override({color: [1, 0, 0, 1]}));
+        this.shapes.box.draw(context, program_state, crosshair_bottom_transform, this.materials.plastic.override({color: [1, 0, 0, 1]}));
+        this.shapes.box.draw(context, program_state, crosshair_left_transform, this.materials.plastic.override({color: [1, 0, 0, 1]}));
+        this.shapes.box.draw(context, program_state, crosshair_right_transform, this.materials.plastic.override({color: [1, 0, 0, 1]}));
+
+        // TODO: Fix pistol shading.
+        this.shapes.pistol.draw(context, program_state, pistol_transform,
+            this.materials.metal.override({color: [128 / 255, 128 / 255, 128 / 255, 1]}));
+
+        // TODO: Implement playing dying mechanic
+        if (kills == 0)
+          this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(1, 1, 1)).times(Mat4.translation(0.1, 0, -0.5)), this.materials.score0);
+        else if (kills == 1)
+          this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(1, 1, 1)).times(Mat4.translation(0.1, 0, -0.5)), this.materials.score1);
+        else if (kills == 2)
+          this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(1, 1, 1)).times(Mat4.translation(0.1, 0, -0.5)), this.materials.score2);
+        else if (kills == 3)
+          this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(1, 1, 1)).times(Mat4.translation(0.1, 0, -0.5)), this.materials.score3);
+        else if (kills == 4)
+          this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(1, 1, 1)).times(Mat4.translation(0.1, 0, -0.5)), this.materials.score4);
+        else if (kills == 5)
+          this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(1, 1, 1)).times(Mat4.translation(0.1, 0, -0.5)), this.materials.score5);
+        else if(kills == 6)
+          this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(1, 1, 1)).times(Mat4.translation(0.1, 0, -0.5)), this.materials.score6);
+        else if(kills == 7)
+           this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(1, 1, 1)).times(Mat4.translation(0.1, 0, -0.5)), this.materials.score7);
+        else if(kills == 8)
+           this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(1, 1, 1)).times(Mat4.translation(0.1, 0, -0.5)), this.materials.score8);
+        else if(kills == 9)
+           this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(1, 1, 1)).times(Mat4.translation(0.1, 0, -0.5)), this.materials.score9);
+        else if(kills == 10)
+           this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(1, 1, 1)).times(Mat4.translation(0.1, 0, -0.5)), this.materials.score10);
+      }
+      else
+        this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(2, 2, 2)).times(Mat4.translation(0, 0, -1)), this.materials.winner);
     }
 }
