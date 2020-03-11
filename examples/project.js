@@ -14,8 +14,11 @@ let g_z_rot = 0;
 let x_rotation_angle = 0;
 let next_spawn_location = 0;
 let spawn_locations = [vec3(0, 0.3, 25), vec3(25, 0.3, 0), vec3(-25, 0.3, 0)];
-let max_robots = 6
+let max_robots = 15;
+let kills = 0;
+let closest_robot_dist = 999999;
 let g_pseudo_cam = Mat4.look_at(vec3(0, 0, 0), vec3(0, 0, -1), vec3(0, 1, 0));
+let g_immovable_objs = [];
 
 const FPS_Controls =
 class FPS_Controls extends defs.Movement_Controls
@@ -61,14 +64,43 @@ class FPS_Controls extends defs.Movement_Controls
     // accommodate for this.thrust[1] which is the axis.
     // The thrust values are subtracted from the g_origin_offset because we want the
     // objects to do the opposite of what I'm doing so it looks as if the cam is moving.
+    let future_origin_offset = vec3(NaN, NaN, NaN);
+    Object.assign(future_origin_offset, g_origin_offset);
+
     if (this.thrust[0] !== 0) {
-      g_origin_offset[0] += 1 * this.thrust[0] * g_x_ccs[0] * .1;
-      g_origin_offset[2] += 1 * this.thrust[0] * g_x_ccs[2] * .1;
+      future_origin_offset[0] += 1 * this.thrust[0] * g_x_ccs[0] * .1;
+      future_origin_offset[2] += 1 * this.thrust[0] * g_x_ccs[2] * .1;
     }
     if (this.thrust[2] !== 0) {
-      g_origin_offset[0] += 1 * this.thrust[2] * g_z_ccs[0] * .1;
-      g_origin_offset[2] += 1 * this.thrust[2] * g_z_ccs[2] * .1;
+      future_origin_offset[0] += 1 * this.thrust[2] * g_z_ccs[0] * .1;
+      future_origin_offset[2] += 1 * this.thrust[2] * g_z_ccs[2] * .1;
     }
+
+    // Prevent the player from running into solid objects.
+    const origin = vec3(0, 0, 0);
+    const euclid_dist_xz = (p, q) => {
+      return Math.sqrt(Math.pow(p[0] - q[0], 2) +
+          Math.pow( p[2] - q[2], 2));
+    };
+    let future_dist = euclid_dist_xz(future_origin_offset, origin);
+    let cur_dist = euclid_dist_xz(g_origin_offset, origin);
+
+    for (let [i, o] of g_immovable_objs.entries()) {
+      let o_pos_mat = Mat4.identity().times(Mat4.translation(...g_origin_offset)).times(o.location);
+      let o_pos = vec3(o_pos_mat[0][3], o_pos_mat[1][3], o_pos_mat[2][3]);
+      let dist = euclid_dist_xz(o_pos, origin);
+      // The future_dist and cur_dist comparison make it so we can "unwedge" ourselves.
+      if (dist < o.margin * 5  && future_dist > cur_dist) {
+        return;
+      }
+    }
+    // Prevent the player from running off the map.
+    if (future_dist > 45) {
+      return;
+    }
+
+    // Not outside fence, we are fine, commit the movement change.
+    Object.assign(g_origin_offset, future_origin_offset);
   }
 
   // This function is called whenever the mouse is moved.
@@ -192,6 +224,7 @@ class Robot extends Body {
     this.arm_prop = [0,0];
 
     this.broken_parts = 0;
+    this.euclidean_dist = 0;
   }
 }
 
@@ -360,12 +393,77 @@ export class Project_Base extends Scene {                                       
         specularity: 0.1,
         texture: new Texture("assets/starrysky.png"),
         color: color(0, 0, 0, 1)
-      })
+      }),
+      score0: new Material(textured, {
+        ambient: 1,
+        texture: new Texture("assets/0.png"),
+        color: color(0, 0, 0, 1)
+      }),
+      score1: new Material(textured, {
+        ambient: 1,
+        texture: new Texture("assets/1.png"),
+        color: color(0, 0, 0, 1)
+      }),
+      score2: new Material(textured, {
+        ambient: 1,
+        texture: new Texture("assets/2.png"),
+        color: color(0, 0, 0, 1)
+      }),
+      score3: new Material(textured, {
+        ambient: 1,
+        texture: new Texture("assets/3.png"),
+        color: color(0, 0, 0, 1)
+      }),
+      score4: new Material(textured, {
+        ambient: 1,
+        texture: new Texture("assets/4.png"),
+        color: color(0, 0, 0, 1)
+      }),
+      score5: new Material(textured, {
+        ambient: 1,
+        texture: new Texture("assets/5.png"),
+        color: color(0, 0, 0, 1)
+      }),
+      score6: new Material(textured, {
+        ambient: 1,
+        texture: new Texture("assets/6.png"),
+        color: color(0, 0, 0, 1)
+      }),
+      score7: new Material(textured, {
+        ambient: 1,
+        texture: new Texture("assets/7.png"),
+        color: color(0, 0, 0, 1)
+      }),
+      score8: new Material(textured, {
+        ambient: 1,
+        texture: new Texture("assets/8.png"),
+        color: color(0, 0, 0, 1)
+      }),
+      score9: new Material(textured, {
+        ambient: 1,
+        texture: new Texture("assets/9.png"),
+        color: color(0, 0, 0, 1)
+      }),
+      score10: new Material(textured, {
+        ambient: 1,
+        texture: new Texture("assets/10.png"),
+        color: color(0, 0, 0, 1)
+      }),
+      winner: new Material(textured, {
+        ambient: 1,
+        texture: new Texture("assets/winner.png"),
+        color: color(0, 0, 0, 1)
+      }),
+      game_over: new Material(textured, {
+        ambient: 1,
+        texture: new Texture("assets/game_over.png"),
+        color: color(0, 0, 0, 1)
+      }),
     };
 
     this.time_of_day = "day";
-    this.random_x = []
-    this.random_z = []
+    this.random_x = [];
+    this.random_z = [];
     var theta = 0;
     for (var i = 0; i < 36; i += 1) {
       var R = 18 + 28 * Math.random();
@@ -373,14 +471,16 @@ export class Project_Base extends Scene {                                       
       this.random_x.push(R * Math.cos(theta1));
       this.random_z.push(R * Math.sin(theta1));
       this.immovables.push(new Immovable(this.random_x[i], .3, this.random_z[i]));
-      theta += 0.174533
+      theta += 0.174533;
     }
+
     this.night_lights = [new Light(vec4(0, -1, 1, 0), color(1, 1, 1, 1), 1)]
     this.day_lights = [new Light(vec4(0, -1, 1, 0), color(1, 1, 1, 1), 10000)]
 
     this.fired_bullet = true;
     this.pistol_transform = Mat4.identity();
     this.bullet_transform = this.pistol_transform;
+
   }
 
   make_control_panel() {
@@ -475,7 +575,10 @@ export class Project_Base extends Scene {                                       
         if (this.robots.length < max_robots) {
           next_spawn_location = (next_spawn_location + 1) % 3;
           this.robots.push(new Robot(...spawn_locations[next_spawn_location]));
+          kills += 1;
+          console.log(kills);
         } else {
+          // TODO: Winning mechanic
           console.log("WINNER")
         }
       }
@@ -539,6 +642,7 @@ export class Project_Base extends Scene {                                       
     let y_location_diff = this.robots[index].location.times(Mat4.translation(...g_origin_offset))[1][3];
     let z_location_diff = Mat4.translation(...g_origin_offset).times(this.robots[index].location)[2][3];
     let euclidean_dist = Math.sqrt(Math.pow(x_location_diff, 2) + Math.pow(z_location_diff, 2));
+
     // Prevent robot from flipping 180 degrees when out of the range of Math.atan
     if (x_location_diff > 0 && z_location_diff > 0)
       x_rotation_angle = Math.atan(x_location_diff / z_location_diff) - Math.PI;
@@ -549,6 +653,12 @@ export class Project_Base extends Scene {                                       
 
     // Alive
     if (robot_state == 0) {
+      // Check how close the robot is to the player
+      this.robots[index].euclidean_dist = euclidean_dist;
+      // Find the closest robot. Allows the player to die
+      if (euclidean_dist < closest_robot_dist)
+        closest_robot_dist = euclidean_dist;
+
       for (let c of this.immovables) {
         if (this.robots[index].check_if_colliding(c))
           this.set_collapse(this.robots[index]);
@@ -580,8 +690,8 @@ export class Project_Base extends Scene {                                       
 
     // Collapse
     else if (robot_state == 1) {
+
       let broken_parts = 0;
-      // TODO: Fix rotation
       var top_torso_transform = this.robots[index].location.times(Mat4.rotation(x_rotation_angle, 0, 1, 0));
       let t = (this.t - this.robots[index].time) * 1.5;
       let x = this.robots[index].linear_velocity[0] * t;
@@ -794,44 +904,82 @@ export class Project extends Project_Base
       let model_transform = Mat4.identity();
       const t = this.t = program_state.animation_time/1000;
       //this.robots = this.robots.filter( b => b.state != 2);
-      // Draw robot
-      for (var i = 0; i < this.robots.length; i++)
-        this.draw_robot(context, program_state, i);
 
-      // Draw environment
-      this.draw_environment(context, program_state, model_transform);
 
-      this.pistol_transform = Mat4.identity()
-          //.times(Mat4.rotation(g_z_rot, 0, 1, 0))
-          .times(Mat4.translation(1.5, -0.9, -3))
-          .times(Mat4.rotation(-4 * Math.PI / 8, 0, 1, 0))
-          //.times(Mat4.rotation(Math.PI / 2, 1, 0, 0))
-          .times(Mat4.scale(.4, .4, .4));
-      // this.shapes.pistol.draw(context, program_state, pistol_transform,
-      //     this.materials.metal.override( { color: [128/255, 128/255, 128/255, 1] }));
 
-      if(this.fired_bullet){
-        if(this.bullet_transform[0][3] < 0.1){
-          this.bullet_transform = this.pistol_transform;
-          this.fired_bullet = false
-        }else{
-          this.bullet_transform = this.bullet_transform.times(Mat4.translation(-10, 0.03, 0.1 * program_state.camera_transform[2][2]));
-          this.shapes.box.draw(context, program_state, this.bullet_transform.times(Mat4.scale(3, 0.1, 0.1)), this.materials.plastic.override({color: color(1, 0, 0, 1), specularity: 1, ambient: 1}));
-        }
+      // Check if player is dead
+      if (closest_robot_dist < 4){
+        this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(2, 2, 2)).times(Mat4.translation(0, 0, -1)), this.materials.game_over);
       }
+      // If player is alive
+      else if (kills < max_robots && kills <= 10) {
+        // Draw robot
+        for (var i = 0; i < this.robots.length; i++)
+          this.draw_robot(context, program_state, i);
 
-      let crosshair_top_transform = Mat4.identity().times(Mat4.translation(0, 0.05, -1.5)).times(Mat4.scale(0.005, 0.02, 0.01))
-      let crosshair_bottom_transform = Mat4.identity().times(Mat4.translation(0, -0.05, -1.5)).times(Mat4.scale(0.005, 0.02, 0.01))
-      let crosshair_left_transform = Mat4.identity().times(Mat4.translation(-0.05, 0, -1.5)).times(Mat4.scale(0.02, 0.005, 0.01))
-      let crosshair_right_transform = Mat4.identity().times(Mat4.translation(0.05, 0, -1.5)).times(Mat4.scale(0.02, 0.005, 0.01))
+        // Draw environment
+        this.draw_environment(context, program_state, model_transform);
 
-      this.shapes.box.draw(context, program_state, crosshair_top_transform, this.materials.plastic.override({color:[1, 0, 0, 1]}));
-      this.shapes.box.draw(context, program_state, crosshair_bottom_transform, this.materials.plastic.override({color:[1, 0, 0, 1]}));
-      this.shapes.box.draw(context, program_state, crosshair_left_transform, this.materials.plastic.override({color:[1, 0, 0, 1]}));
-      this.shapes.box.draw(context, program_state, crosshair_right_transform, this.materials.plastic.override({color:[1, 0, 0, 1]}));
+        this.pistol_transform = Mat4.identity()
+            //.times(Mat4.rotation(g_z_rot, 0, 1, 0))
+            .times(Mat4.translation(1.5, -0.9, -3))
+            .times(Mat4.rotation(-4 * Math.PI / 8, 0, 1, 0))
+            //.times(Mat4.rotation(Math.PI / 2, 1, 0, 0))
+            .times(Mat4.scale(.4, .4, .4));
+        // this.shapes.pistol.draw(context, program_state, pistol_transform,
+        //     this.materials.metal.override( { color: [128/255, 128/255, 128/255, 1] }));
 
-      // TODO: Fix pistol shading.
-      this.shapes.pistol.draw(context, program_state, this.pistol_transform,
-          this.materials.metal.override( { color: [128/255, 128/255, 128/255, 1] }));
+        if(this.fired_bullet){
+          if(this.bullet_transform[0][3] < 0.1){
+            this.bullet_transform = this.pistol_transform;
+            this.fired_bullet = false
+          }else{
+            this.bullet_transform = this.bullet_transform.times(Mat4.translation(-10, 0.03, 0.1 * program_state.camera_transform[2][2]));
+            this.shapes.box.draw(context, program_state, this.bullet_transform.times(Mat4.scale(3, 0.1, 0.1)), this.materials.plastic.override({color: color(1, 0, 0, 1), specularity: 1, ambient: 1}));
+          }
+        }
+
+        let crosshair_top_transform = Mat4.identity().times(Mat4.translation(0, 0.05, -1.5)).times(Mat4.scale(0.005, 0.02, 0.01))
+        let crosshair_bottom_transform = Mat4.identity().times(Mat4.translation(0, -0.05, -1.5)).times(Mat4.scale(0.005, 0.02, 0.01))
+        let crosshair_left_transform = Mat4.identity().times(Mat4.translation(-0.05, 0, -1.5)).times(Mat4.scale(0.02, 0.005, 0.01))
+        let crosshair_right_transform = Mat4.identity().times(Mat4.translation(0.05, 0, -1.5)).times(Mat4.scale(0.02, 0.005, 0.01))
+
+        this.shapes.box.draw(context, program_state, crosshair_top_transform, this.materials.plastic.override({color: [1, 0, 0, 1]}));
+        this.shapes.box.draw(context, program_state, crosshair_bottom_transform, this.materials.plastic.override({color: [1, 0, 0, 1]}));
+        this.shapes.box.draw(context, program_state, crosshair_left_transform, this.materials.plastic.override({color: [1, 0, 0, 1]}));
+        this.shapes.box.draw(context, program_state, crosshair_right_transform, this.materials.plastic.override({color: [1, 0, 0, 1]}));
+
+        // TODO: Fix pistol shading.
+        this.shapes.pistol.draw(context, program_state, this.pistol_transform,
+            this.materials.metal.override({color: [128 / 255, 128 / 255, 128 / 255, 1]}));
+
+        // TODO: Implement playing dying mechanic
+        if (kills == 0)
+          this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(1, 1, 1)).times(Mat4.translation(0.1, 0, -0.5)), this.materials.score0);
+        else if (kills == 1)
+          this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(1, 1, 1)).times(Mat4.translation(0.1, 0, -0.5)), this.materials.score1);
+        else if (kills == 2)
+          this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(1, 1, 1)).times(Mat4.translation(0.1, 0, -0.5)), this.materials.score2);
+        else if (kills == 3)
+          this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(1, 1, 1)).times(Mat4.translation(0.1, 0, -0.5)), this.materials.score3);
+        else if (kills == 4)
+          this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(1, 1, 1)).times(Mat4.translation(0.1, 0, -0.5)), this.materials.score4);
+        else if (kills == 5)
+          this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(1, 1, 1)).times(Mat4.translation(0.1, 0, -0.5)), this.materials.score5);
+        else if(kills == 6)
+          this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(1, 1, 1)).times(Mat4.translation(0.1, 0, -0.5)), this.materials.score6);
+        else if(kills == 7)
+           this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(1, 1, 1)).times(Mat4.translation(0.1, 0, -0.5)), this.materials.score7);
+        else if(kills == 8)
+           this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(1, 1, 1)).times(Mat4.translation(0.1, 0, -0.5)), this.materials.score8);
+        else if(kills == 9)
+           this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(1, 1, 1)).times(Mat4.translation(0.1, 0, -0.5)), this.materials.score9);
+        else if(kills == 10)
+           this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(1, 1, 1)).times(Mat4.translation(0.1, 0, -0.5)), this.materials.score10);
+      }
+      // If player wins
+      else
+        this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(2, 2, 2)).times(Mat4.translation(0, 0, -1)), this.materials.winner);
+
     }
 }
