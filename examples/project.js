@@ -1,4 +1,8 @@
 import {tiny, defs} from './common.js';
+// TODO: Sound effects - Game Over, Laser Gun, Robot Exploding, Winner "woohoo"
+// TODO: Collision with immovable object
+// TODO: Update gun model and texture
+// TODO: Get a clearer sky texture
                                                   // Pull these names into this module's scope for convenience:
 const { Triangle, Square, Tetrahedron, Windmill, Cube, Subdivision_Sphere, Capped_Cylinder, Grid_Patch } = defs;
 // Pull these names into this module's scope for convenience:
