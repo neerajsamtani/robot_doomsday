@@ -465,6 +465,11 @@ export class Project_Base extends Scene {                                       
         texture: new Texture("assets/game_over.png"),
         color: color(0, 0, 0, 1)
       }),
+      raygun: new Material(textured, {
+        ambient: 1,
+        texture: new Texture("assets/raygun.png"),
+        color: color(0, 0, 0, 1)
+      }),
     };
 
     this.time_of_day = "day";
@@ -981,10 +986,11 @@ export class Project extends Project_Base
         this.shapes.box.draw(context, program_state, crosshair_bottom_transform, this.materials.plastic.override({color: [1, 0, 0, 1]}));
         this.shapes.box.draw(context, program_state, crosshair_left_transform, this.materials.plastic.override({color: [1, 0, 0, 1]}));
         this.shapes.box.draw(context, program_state, crosshair_right_transform, this.materials.plastic.override({color: [1, 0, 0, 1]}));
+        
+        // this.shapes.pistol.draw(context, program_state, this.pistol_transform,
+        //     this.materials.metal.override({color: [128 / 255, 128 / 255, 128 / 255, 1]}));
 
-        // TODO: Fix pistol shading.
-        this.shapes.pistol.draw(context, program_state, this.pistol_transform,
-            this.materials.metal.override({color: [128 / 255, 128 / 255, 128 / 255, 1]}));
+        this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(0.5, 0.5, 0.5)).times(Mat4.translation(0.5, 0, -1)), this.materials.raygun);
 
         // TODO: Implement playing dying mechanic
         if (kills == 0)
