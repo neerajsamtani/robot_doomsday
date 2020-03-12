@@ -98,7 +98,7 @@ class FPS_Controls extends defs.Movement_Controls
       let o_pos = vec3(o_pos_mat[0][3], o_pos_mat[1][3], o_pos_mat[2][3]);
       let dist = euclid_dist_xz(o_pos, origin);
       // The future_dist and cur_dist comparison make it so we can "unwedge" ourselves.
-      if (dist < o.margin * 5  && future_dist > cur_dist) {
+      if (dist < o.margin * 4  && future_dist > cur_dist) {
         return;
       }
     }
