@@ -340,6 +340,17 @@ export class Project_Base extends Scene {                                       
     const initial_corner_point = vec3(-10, -10, 0);
     const row_operation = (s, p) => p ? Mat4.translation(0, .08, 0).times(p.to4(10)).to3() : initial_corner_point;
     const column_operation = (t, p) => Mat4.translation(.08, 0, 0).times(p.to4(10)).to3();
+
+    // Setup Sounds
+    this.died = false; // Used to ensure that the die sound plays only once
+    this.won = false; // Used to ensure that the won sound plays only once
+    this.die_sound = new Audio();
+    this.die_sound.src = 'assets/argh.wav';
+    this.woohoo_sound = new Audio();
+    this.woohoo_sound.src = 'assets/woohoo.wav';
+    this.shoot_sound = new Audio();
+    this.shoot_sound.src = 'assets/shoot.wav';
+
     this.shapes = {
       'box': new Cube(),
       'ball': new Subdivision_Sphere(4),
@@ -570,6 +581,7 @@ export class Project_Base extends Scene {                                       
 
     this.key_triggered_button("Kill a robot", [" "], function () {
       this.fired_bullet = true;
+      this.shoot_sound.play();
       let oot = Mat4.identity()
           .times(Mat4.rotation(g_z_rot, 0, 1, 0))
           .times(Mat4.translation(...g_origin_offset));
@@ -948,6 +960,10 @@ export class Project extends Project_Base
       // Check if player is dead
       if (closest_robot_dist < 4){
         this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(2, 2, 2)).times(Mat4.translation(0, 0, -1)), this.materials.game_over);
+        if (!this.died) {
+          this.die_sound.play();
+          this.died = true;
+        }
       }
       // If player is alive
       else if (kills < max_robots && kills <= 10) {
@@ -1017,8 +1033,13 @@ export class Project extends Project_Base
            this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(1, 1, 1)).times(Mat4.translation(0.1, 0, -0.5)), this.materials.score10);
       }
       // If player wins
-      else
+      else {
         this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(2, 2, 2)).times(Mat4.translation(0, 0, -1)), this.materials.winner);
+        if (!this.won) {
+          this.woohoo_sound.play();
+          this.won = true;
+        }
+      }
 
     }
 }
