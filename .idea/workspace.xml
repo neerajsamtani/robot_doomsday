@@ -3,7 +3,17 @@
   <component name="ChangeListManager">
     <list default="true" id="6494de0b-c0af-42da-ba30-64730a9fe94b" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/examples/project.js" beforeDir="false" afterPath="$PROJECT_DIR$/examples/project.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/axes-viewer.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/collisions-demo.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/common.js" beforeDir="false" afterPath="$PROJECT_DIR$/src/common.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/many-lights-demo.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/obj-file-demo.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/project.js" beforeDir="false" afterPath="$PROJECT_DIR$/src/project.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/scene-to-texture-demo.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/surfaces-demo.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/examples/text-demo.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/main-scene.js" beforeDir="false" afterPath="$PROJECT_DIR$/main-scene.js" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -82,6 +92,7 @@
       <workItem from="1583892059134" duration="517000" />
       <workItem from="1583986647142" duration="2744000" />
       <workItem from="1584001714335" duration="1970000" />
+      <workItem from="1584663331059" duration="1602000" />
     </task>
     <servers />
   </component>
@@ -93,11 +104,15 @@
       <screen x="0" y="0" width="1536" height="824" />
     </state>
     <state x="550" y="169" key="FileChooserDialogImpl/0.0.1536.824@0.0.1536.824" timestamp="1583832098852" />
-    <state x="462" y="144" width="802" height="536" key="find.popup" timestamp="1583875010975">
+    <state x="568" y="103" key="com.intellij.openapi.editor.actions.MultiplePasteAction$ClipboardContentChooser" timestamp="1584663940844">
+      <screen x="0" y="0" width="1536" height="824" />
+    </state>
+    <state x="568" y="103" key="com.intellij.openapi.editor.actions.MultiplePasteAction$ClipboardContentChooser/0.0.1536.824@0.0.1536.824" timestamp="1584663940844" />
+    <state x="462" y="144" width="802" height="536" key="find.popup" timestamp="1584663433745">
       <screen x="0" y="0" width="1536" height="824" />
     </state>
     <state x="433" y="224" width="803" height="582" key="find.popup/0.0.1440.900@0.0.1440.900" timestamp="1583529990525" />
-    <state x="462" y="144" width="802" height="536" key="find.popup/0.0.1536.824@0.0.1536.824" timestamp="1583875010975" />
+    <state x="462" y="144" width="802" height="536" key="find.popup/0.0.1536.824@0.0.1536.824" timestamp="1584663433745" />
     <state x="433" y="167" width="803" height="582" key="find.popup/0.23.1440.822@0.23.1440.822" timestamp="1583370372389" />
   </component>
 </project>

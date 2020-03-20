@@ -1,30 +1,31 @@
-# tiny-graphics.js
+# Robot Doomsday
 
-This is a small, single file JavaScript utility.  It organizes WebGL programs to be object-oriented and minimally cluttered.  
 
-Writing code with raw JavaScript and WebGL can be repetitive and tedious.  Using frameworks like three.js can create an undesired separation between you and the raw JavaScript and WebGL and common graphics operations you want to learn.  Unlike other frameworks, tiny-graphics.js is purpose-built for education, has small source code, and teaches you how it is made.
+Robot Doomsday is a 3D WebGL game where players must survive a hoard of robots to win.
+The game uses linear transformations to animate the characters and support gameplay. 
 
-This tiny library gives your WebGL program access to linear algebra routines, useful UI controls and readouts, and the drawing utilities needed by modern shader-based graphics.  It factors away the repetitive logic of GPU communication into re-usable objects.  The objects can be seamlessly shared between multiple WebGL contexts (drawing regions) on a web page.
+The features we included are:
+* FPS Controls
+* Collisions
+* Robot Explosion Physics
+* Robot Path Finding Algorithm (to track the player)
+* Parametric Surfaces (Pond)
+* Night and Day Mode
+* Sounds
 
-The tiny-graphics.js software library has accompanied UCLA Computer Science's 174a course (Intro to Computer Graphics) since 2016, replacing Edward Angel's supplemental code from his textbook "Interactive Computer Graphics: A Top-Down Approach with WebGL".  Compared to Angel's library, tiny-graphics.js offers more organization and functionality.
+## Setup and Controls
+To play the game - clone the repository, open the included "host.bat" or "host.command" file, then open localhost in your browser (http://localhost:8000/).
 
-This code library accompanies and supports a web project by the same author called "The Encyclopedia of Code", a crowd-sourced repository of WebGL demos and educational tutorials that uses an online editor.
+Click on the game window to begin controlling the character.
+You control the player with WASD, look around with the mouse, and use the space key to fire the raygun.
+You win when you kill 11 robots. If a robot gets too close, you die!
 
-To run a sample using tiny-graphics.js, visit its GitHub Pages link: https://encyclopedia-of-code.github.io/tiny-graphics-js/
+As an added feature, you can hit 'n' to switch the time of day and make the game even scarier!
 
-To see all the demos and edit them:  Open the included "host.bat" or "host.command" file, then open localhost in your browser.  Open Developer Tools and create a workspace for your new folder.  Now you can edit the files, which is necessary to view the different demos.
 
-To select a demo, open and edit main-scene.js.  Assign your choice to the Main_Scene variable.  Your choices for scenes are:
+## Gameplay in Robot Doomsday
+![](assets/screenshot.png)
 
-* Minimal_Webgl_Demo
-* Transforms_Sandbox
-* Axes_Viewer_Test_Scene
-* Inertia_Demo
-* Collision_Demo
-* Many_Lights_Demo
-* Obj_File_Demo
-* Text_Demo
-* Scene_To_Texture_Demo
-* Surfaces_Demo
+___
 
-The code comments in each file should help, especially if you look at the definition of Transforms_Sandbox.  So should the explanations that the demos print on the page.  Enjoy!
+###### The tiny-graphics.js software library was provided by UCLA Computer Science's 174A course (Intro to Computer Graphics). It implements vector mathematics and other routine operations in computer graphics to speed up our development process.

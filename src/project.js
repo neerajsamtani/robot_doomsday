@@ -1,8 +1,4 @@
 import {tiny, defs} from './common.js';
-// TODO: Sound effects - Game Over, Laser Gun, Robot Exploding, Winner "woohoo"
-// TODO: Collision with immovable object
-// TODO: Update gun model and texture
-// TODO: Get a clearer sky texture
                                                   // Pull these names into this module's scope for convenience:
 const { Triangle, Square, Tetrahedron, Windmill, Cube, Subdivision_Sphere, Capped_Cylinder, Grid_Patch } = defs;
 // Pull these names into this module's scope for convenience:
@@ -128,7 +124,6 @@ class FPS_Controls extends defs.Movement_Controls
       // let y_ccs = this.matrix().times(vec4(0, 1, 0, 0)).to3();
       let y_ccs = g_pseudo_cam.times(vec4(0, 1, 0, 0)).to3();
       let rot_angle = radians_per_frame * dragging_vector.norm() * (dragging_vector[0] > 0 ? 1 : -1);
-      // console.log(`Y Axis in CCS: (${y_ccs[0].toFixed(2)}, ${y_ccs[1].toFixed(2)}, ${y_ccs[2].toFixed(2)})`);
       horiz_rot = Mat4.rotation(rot_angle, y_ccs[0], y_ccs[1], y_ccs[2]);
     }
 
@@ -142,10 +137,6 @@ class FPS_Controls extends defs.Movement_Controls
 
     let z_angle = Math.atan2(g_z_ccs[2], g_z_ccs[0]) - Math.atan2(1, 0);
     g_z_rot = z_angle;
-
-    // console.log(`CamZ: (${this.matrix()[0][2].toFixed(2)},
-    // ${this.matrix()[1][2].toFixed(2)},
-    // ${this.matrix()[2][2].toFixed(2)})`);
   }
 
   display(context, graphics_state, dt = graphics_state.animation_delta_time / 1000)
@@ -325,12 +316,8 @@ export class Shape_From_File extends Shape
       super.draw( context, program_state, model_transform, material );
   }
 }
-export class Project_Base extends Scene {                                          // **Transforms_Sandbox_Base** is a Scene that can be added to any display canvas.
-                                                                                   // This particular scene is broken up into two pieces for easier understanding.
-                                                                                   // The piece here is the base class, which sets up the machinery to draw a simple
-                                                                                   // scene demonstrating a few concepts.  A subclass of it, Transforms_Sandbox,
-                                                                                   // exposes only the display() method, which actually places and draws the shapes,
-                                                                                   // isolating that code so it can be experimented with on its own.
+export class Project_Base extends Scene {
+
   constructor() {                  // constructor(): Scenes begin by populating initial values like the Shapes and Materials they'll need.
     super();
     this.robots = [];
@@ -512,71 +499,7 @@ export class Project_Base extends Scene {                                       
   }
 
   make_control_panel() {
-    // // make_control_panel(): Sets up a panel of interactive HTML elements, including
-    // // buttons with key bindings for affecting this scene, and live info readouts.
-    // this.control_panel.innerHTML += "Dragonfly rotation angle: <br>";
-    // // The next line adds a live text readout of a data member of our Scene.
-    // this.live_string(box => {
-    //   box.textContent = (this.hover ? 0 : (this.t % (2 * Math.PI)).toFixed(2)) + " radians"
-    // });
-    // this.new_line();
-    // // Add buttons so the user can actively toggle data members of our Scene:
-    // this.key_triggered_button("Hover dragonfly in place", ["h"], function () {
-    //   this.hover ^= 1;
-    // });
-    // this.new_line();
-    // this.key_triggered_button("Swarm mode", ["m"], function () {
-    //   this.swarm ^= 1;
-    // });
-    //
-    // this.new_line();
-    // this.live_string(box => {
-    //   box.textContent =
-    //       `Cam Looking At: (${g_cam_looking_at[0].toFixed(2)},
-    //       ${g_cam_looking_at[1].toFixed(2)}, ${g_cam_looking_at[2].toFixed(2)})`;
-    // });
-    // this.new_line();
-    // this.live_string(box => {
-    //   box.textContent = `World Offset: (${g_origin_offset[0].toFixed(2)}, ${g_origin_offset[1].toFixed(2)}, ${g_origin_offset[2].toFixed(2)})`;
-    // });
-    // this.new_line();
-    // if (g_x_ccs.every(x => x !== NaN)) {
-    //   this.live_string(box => {
-    //     box.textContent = `X CCS: (${g_x_ccs[0].toFixed(2)}, ${g_x_ccs[1].toFixed(2)}, ${g_x_ccs[2].toFixed(2)})`;
-    //   });
-    //   this.key_triggered_button("switch time of day", ["n"], function ()  {
-    //       if(this.time_of_day == "day"){
-    //           this.time_of_day = "night"
-    //       }else{
-    //           this.time_of_day = "day"
-    //       }
-    //   })
-    // }
-    // this.new_line();
-    // if (g_z_ccs.every(x => x !== NaN)) {
-    //   this.live_string(box => {
-    //     box.textContent = `Z CCS: (${g_z_ccs[0].toFixed(2)}, ${g_z_ccs[1].toFixed(2)}, ${g_z_ccs[2].toFixed(2)})`;
-    //   });
-    // }
-    // this.new_line();
-    // this.live_string(box => {
-    //   box.textContent = `Z Angle: ${g_z_rot.toFixed(4)}`;
-    // });
-    // this.new_line();
-    // this.live_string(box => {
-    //   box.textContent = `Leader Robot X_T: ${this.robots[0] ?
-    //       (this.robots[0].location[0] ? this.robots[0].location[0][3].toFixed(3) : 3) : 0}`;
-    // });
-    // this.new_line();
-    // this.live_string(box => {
-    //   box.textContent = `Leader Robot Y_T: ${this.robots[0] ?
-    //       (this.robots[0].location[1] ? this.robots[0].location[1][3].toFixed(3) : 3) : 0}`;
-    // });
-    // this.new_line();
-    // this.live_string(box => {
-    //   box.textContent = `Leader Robot Z_T: ${this.robots[0] ?
-    //       (this.robots[0].location[2] ? this.robots[0].location[2][3].toFixed(3) : 3) : 0}`;
-    // });
+
     this.new_line();
 
     this.key_triggered_button("Kill a robot", [" "], function () {
@@ -605,12 +528,8 @@ export class Project_Base extends Scene {                                       
           next_spawn_location = (next_spawn_location + 1) % 6;
           this.robots.push(new Robot(...spawn_locations[next_spawn_location]));
           kills += 1;
-          console.log(kills);
         } else {
-          // TODO: Winning mechanic
           kills += 1;
-          console.log(kills);
-          console.log("WINNER")
         }
       }
 
@@ -644,7 +563,6 @@ export class Project_Base extends Scene {                                       
     program_state.projection_transform = Mat4.perspective(Math.PI / 4, context.width / context.height, 1, 150);
     const t = this.t = program_state.animation_time / 1000;
     const angle = Math.sin(t);
-    //const light_position = Mat4.rotation( angle,   1,0,0 ).times( vec4( 0,-1,1,0 ) );
     if (this.time_of_day == "day")
       program_state.lights = this.day_lights;
     else
@@ -694,8 +612,7 @@ export class Project_Base extends Scene {                                       
 
     // Alive
     if (robot_state == 0) {
-      // Check how close the robot is to the player
-      //this.robots[index].euclidean_dist = euclidean_dist;
+
       // Find the closest robot. Allows the player to die
       if (euclidean_dist < closest_robot_dist)
         closest_robot_dist = euclidean_dist;
@@ -705,7 +622,6 @@ export class Project_Base extends Scene {                                       
         this.robots[index].bounce_t = 1;
       }
       for (let b of this.robots) {
-        // console.log(b);
         if (this.robots[index] != b && this.robots[index].check_if_colliding(b) && this.robots[index].bounce_t == 0)
           this.robots[index].bounce_t = 1;
       }
@@ -716,10 +632,8 @@ export class Project_Base extends Scene {                                       
         this.robots[index].location = this.robots[index].location
             .times(Mat4.translation(-1 * x_location_diff / (10 * euclidean_dist), 0, -1 * z_location_diff / (10 * euclidean_dist)));
       }else{
-        // console.log(x_location_diff);
         this.robots[index].location = this.robots[index].location
             .times(Mat4.translation(1 * x_location_diff / ( 10 * euclidean_dist), 0,  1 * z_location_diff / (10* euclidean_dist)));
-        // console.log(this.robots);
         this.robots[index].bounce_t+=1;
       }
 
@@ -909,9 +823,6 @@ export class Project_Base extends Scene {                                       
 
       }
     }
-
-
-    //this.shapes.fence.draw(context, program_state, model_transform.times(Mat4.translation(...g_origin_offset)).times(Mat4.translation(0, -1, 0)).times(Mat4.translation(48*Math.cos(0), 0, 48*Math.sin(0))).times(Mat4.rotation(Math.PI/2, 0, 1, 0)),  this.materials.fence)
   }
 
   // The new version of the function will also translate according to the world offset, which
@@ -980,8 +891,6 @@ export class Project extends Project_Base
             .times(Mat4.rotation(-4 * Math.PI / 8, 0, 1, 0))
             //.times(Mat4.rotation(Math.PI / 2, 1, 0, 0))
             .times(Mat4.scale(.4, .4, .4));
-        // this.shapes.pistol.draw(context, program_state, pistol_transform,
-        //     this.materials.metal.override( { color: [128/255, 128/255, 128/255, 1] }));
 
         if(this.fired_bullet){
           if(this.bullet_transform[0][3] < 0.1){
@@ -1002,13 +911,9 @@ export class Project extends Project_Base
         this.shapes.box.draw(context, program_state, crosshair_bottom_transform, this.materials.plastic.override({color: [1, 0, 0, 1]}));
         this.shapes.box.draw(context, program_state, crosshair_left_transform, this.materials.plastic.override({color: [1, 0, 0, 1]}));
         this.shapes.box.draw(context, program_state, crosshair_right_transform, this.materials.plastic.override({color: [1, 0, 0, 1]}));
-        
-        // this.shapes.pistol.draw(context, program_state, this.pistol_transform,
-        //     this.materials.metal.override({color: [128 / 255, 128 / 255, 128 / 255, 1]}));
 
         this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(0.5, 0.5, 0.5)).times(Mat4.translation(0.5, 0, -1)), this.materials.raygun);
 
-        // TODO: Implement playing dying mechanic
         if (kills == 0)
           this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(1, 1, 1)).times(Mat4.translation(0.1, 0, -0.5)), this.materials.score0);
         else if (kills == 1)
