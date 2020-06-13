@@ -14,7 +14,7 @@ The features we included are:
 * Sounds
 
 ## Setup and Controls
-To play the game - clone the repository, open the included "host.bat" or "host.command" file, then open localhost in your browser (http://localhost:8000/).
+To play the game - clone the repository, run the included "host.bat" or "host.command" file, then open localhost in your browser (http://localhost:8000/). Alternatively, you can play the game online, but this version tends to lag - https://neerajsamtani.github.io/robot_doomsday/
 
 Click on the game window to begin controlling the character.
 You control the player with WASD, look around with the mouse, and use the space key to fire the raygun.
