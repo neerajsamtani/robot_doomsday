@@ -1,25 +1,38 @@
 import {tiny, defs} from './common.js';
-                                                  // Pull these names into this module's scope for convenience:
-const { Triangle, Square, Tetrahedron, Windmill, Cube, Subdivision_Sphere, Capped_Cylinder, Grid_Patch } = defs;
 // Pull these names into this module's scope for convenience:
-
+const { Triangle, Square, Tetrahedron, Windmill, Cube, Subdivision_Sphere, Capped_Cylinder, Grid_Patch } = defs;
 const { vec3, vec4, vec, color, Mat4, Light, Shape, Material, Shader, Texture, Scene } = tiny;
 
+// Track change in mouse position
 let g_dx = 0, g_dy = 0;
+
+// World origin
 let g_origin_offset = vec3(0, 0, 0);
-let g_cam_looking_at = vec3(NaN, NaN, NaN);
+
+// Camera coordinate system
 let g_x_ccs = vec3(1, 0, 0);
 let g_z_ccs = vec3(0, 0, 1);
 let g_z_rot = 0;
+let g_pseudo_cam = Mat4.look_at(vec3(0, 0, 0), vec3(0, 0, -1), vec3(0, 1, 0));
+
+// x rotation angle determines where the robot is facing
 let x_rotation_angle = 0;
+
+// Spawn settings
+// next_spawn_location is used as an index of spawn_locations array to determine the next robot's spawn location
 let next_spawn_location = 0;
 let spawn_locations = [vec3(0, 0.3, 25), vec3(25, 0.3, 0), vec3(-25, 0.3, 0), vec3(10, 0.3, 25), vec3(25, 0.3, -10), vec3(-25, 0.3, 10)];
+
+// Game settings
 let max_robots = 11;
-let kills = 0;
+let current_kills = 0;
 let closest_robot_dist = 999999;
-let g_pseudo_cam = Mat4.look_at(vec3(0, 0, 0), vec3(0, 0, -1), vec3(0, 1, 0));
+
+// Global list of objects that cannot be walked through. Includes trees, rocks, and the pond.
+// However, the player can walk on the pond.
 let g_immovable_objs = [];
 
+// Default FPS Controls
 const FPS_Controls =
 class FPS_Controls extends defs.Movement_Controls
 {
@@ -60,10 +73,17 @@ class FPS_Controls extends defs.Movement_Controls
   // This function is called when the user executes the movement keys, i.e. WASD.
   first_person_flyaround(radians_per_frame, meters_per_frame, leeway = 70 )
   {
-    // We do not want the user to move up/down i.e. along the y axis. So we do not
-    // accommodate for this.thrust[1] which is the axis.
+    // We do not want the user to move up/down i.e. along the y axis.
+    // So we ignore this.thrust[1] which is the y-axis.
+
+    // Instead of the camera moving when the player uses WASD, the world moves in the opposite direction.
+    // For example, when I want to move forward I press W.
+    // Here, the camera doesn't move forward, the world moves towards the camera.
+    // This makes other calculations easier, such as getting the robots to follow the player.
+
     // The thrust values are subtracted from the g_origin_offset because we want the
-    // objects to do the opposite of what I'm doing so it looks as if the cam is moving.
+    // objects to do the opposite of what the player is doing, as explained above.
+
     let future_origin_offset = vec3(NaN, NaN, NaN);
     Object.assign(future_origin_offset, g_origin_offset);
 
@@ -78,18 +98,20 @@ class FPS_Controls extends defs.Movement_Controls
 
     // Prevent the player from running into solid objects.
     const origin = vec3(0, 0, 0);
+    // Calculate xz euclidian distance between objects p and q
     const euclid_dist_xz = (p, q) => {
       return Math.sqrt(Math.pow(p[0] - q[0], 2) +
           Math.pow( p[2] - q[2], 2));
     };
     let future_dist = euclid_dist_xz(future_origin_offset, origin);
     let cur_dist = euclid_dist_xz(g_origin_offset, origin);
-
+    // Compare current player location with location of each immovable object
     for (let [i, o] of g_immovable_objs.entries()) {
-      // I know the pond is added last, and thus last in the immovable object list.
-      // By adding this exception, we allow the user to stand on the pond.
+      // The pond is added last, and thus last (at index 36) in the immovable object list.
+      // By adding this exception, the player can stand on the pond.
       if (i === 36)
         break;
+      // Compare current player location with location of the current immovable object
       let o_pos_mat = Mat4.identity().times(Mat4.translation(...g_origin_offset)).times(o.location);
       let o_pos = vec3(o_pos_mat[0][3], o_pos_mat[1][3], o_pos_mat[2][3]);
       let dist = euclid_dist_xz(o_pos, origin);
@@ -112,22 +134,23 @@ class FPS_Controls extends defs.Movement_Controls
   {
     // The rotation that we do depends ONLY on the mouse dx and dy, stored in the global variables.
     let dragging_vector = vec(g_dx, g_dy).times(40);
+
     // Reset the deltas so we don't keep rotating if the pointer unlocks.
     g_dx = g_dy = 0;
 
+    // Don't do anything if the mouse didn't move
     if( dragging_vector.norm() <= 0 )
       return;
 
     // Rotate around the y axis, i.e. horizontal movement.
     let horiz_rot;
     if (dragging_vector[0] !== 0) {
-      // let y_ccs = this.matrix().times(vec4(0, 1, 0, 0)).to3();
       let y_ccs = g_pseudo_cam.times(vec4(0, 1, 0, 0)).to3();
       let rot_angle = radians_per_frame * dragging_vector.norm() * (dragging_vector[0] > 0 ? 1 : -1);
       horiz_rot = Mat4.rotation(rot_angle, y_ccs[0], y_ccs[1], y_ccs[2]);
     }
 
-    // Report the x and z axis w.r.t. camera coordinate system.
+    // Report the x and z axis with respect to camera coordinate system.
     g_x_ccs = Mat4.inverse(g_pseudo_cam).times(vec4(1, 0, 0, 0)).to3();
     g_z_ccs = Mat4.inverse(g_pseudo_cam).times(vec4(0, 0, 1, 0)).to3();
 
@@ -166,16 +189,15 @@ class FPS_Controls extends defs.Movement_Controls
   }
 };
 
+// Superclass for bodies, including immovable objects and the robot
 class Body{
   constructor(x = 0, y = 0, z = 0){
     this.location = Mat4.identity().times(Mat4.translation(x,y,z));
     this.state = 0;
     this.margin = 1;
   }
-  intersect_sphere(p, margin = 0){
-    return p.dot(p) < 1 + margin;
-  }
 
+  // Find euclidian distance between body and target to determine if they're colliding
   check_if_colliding(target){
     if (this == target)
       return false;
@@ -184,6 +206,7 @@ class Body{
   }
 }
 
+// Immovable objects are a type of body with a margin
 class Immovable extends Body{
   constructor(x, y, z, m = 1){
     super(x, y, z);
@@ -191,6 +214,7 @@ class Immovable extends Body{
   }
 }
 
+// Robots are a type of body with additional properties
 class Robot extends Body {
   constructor(x, y, z){
     super(x, y, z);
@@ -221,10 +245,10 @@ class Robot extends Body {
     this.arm_prop = [0,0];
 
     this.broken_parts = 0;
-    this.euclidean_dist = 0;
   }
 }
 
+// Default class to import shape from 3d file
 export class Shape_From_File extends Shape
 {                                   // **Shape_From_File** is a versatile standalone Shape that imports
                                     // all its arrays' data from an .obj 3D model file.
@@ -316,14 +340,13 @@ export class Shape_From_File extends Shape
       super.draw( context, program_state, model_transform, material );
   }
 }
+
 export class Project_Base extends Scene {
 
   constructor() {                  // constructor(): Scenes begin by populating initial values like the Shapes and Materials they'll need.
     super();
     this.robots = [];
     this.immovables = [];
-    this.lasers = [];
-    this.hover = this.swarm = false;
     const initial_corner_point = vec3(-10, -10, 0);
     const row_operation = (s, p) => p ? Mat4.translation(0, .08, 0).times(p.to4(10)).to3() : initial_corner_point;
     const column_operation = (t, p) => Mat4.translation(.08, 0, 0).times(p.to4(10)).to3();
@@ -338,6 +361,7 @@ export class Project_Base extends Scene {
     this.shoot_sound = new Audio();
     this.shoot_sound.src = 'assets/shoot.wav';
 
+    // Setup shapes
     this.shapes = {
       'box': new Cube(),
       'ball': new Subdivision_Sphere(4),
@@ -359,6 +383,7 @@ export class Project_Base extends Scene {
       "fence": new  Shape_From_File("assets/oldfence.obj")
     };
 
+    // Setup materials
     this.shapes.ground.arrays.texture_coord.forEach(p => p.scale_by(50));
     const phong = new defs.Phong_Shader();
     const textured = new defs.Textured_Phong(1);
@@ -470,7 +495,7 @@ export class Project_Base extends Scene {
       }),
     };
 
-    this.time_of_day = "day";
+    // Generate immovable objects at random locations
     this.random_x = [];
     this.random_z = [];
     var theta = 0;
@@ -482,29 +507,32 @@ export class Project_Base extends Scene {
       this.immovables.push(new Immovable(this.random_x[i], .3, this.random_z[i]));
       theta += 0.174533;
     }
-
-    // Pond
+    // Pond is always at same location
     this.immovables.push(new Immovable(-5, 0, -5, 5));
 
-    // Store reference to array in global variable so I can access in another class.
+    // Store reference to array in global variable so it can be accessed in other classes.
     g_immovable_objs = this.immovables;
 
+    // Initialize default values
+    this.time_of_day = "day";
     this.night_lights = [new Light(vec4(0, -1, 1, 0), color(1, 1, 1, 1), 1)];
     this.day_lights = [new Light(vec4(0, -1, 1, 0), color(1, 1, 1, 1), 10000)];
-
     this.fired_bullet = true;
     this.pistol_transform = Mat4.identity();
     this.bullet_transform = this.pistol_transform;
 
   }
 
+  // Control Panel to explain controls to player and interact with user
   make_control_panel() {
 
     this.new_line();
 
+    // Handle spacebar trigger
     this.key_triggered_button("Kill a robot", [" "], function () {
       this.fired_bullet = true;
       this.shoot_sound.play();
+      // Check if the bullet hits a robot
       let oot = Mat4.identity()
           .times(Mat4.rotation(g_z_rot, 0, 1, 0))
           .times(Mat4.translation(...g_origin_offset));
@@ -518,6 +546,7 @@ export class Project_Base extends Scene {
           }
         }
       }
+      // If the robot was killed: begin its collapse animation, increment number of kills, and spawn next robot.
       if (index > -1) {
         this.robots[index].state = 1;
         this.robots[index].time = this.t;
@@ -527,13 +556,14 @@ export class Project_Base extends Scene {
         if (this.robots.length < max_robots) {
           next_spawn_location = (next_spawn_location + 1) % 6;
           this.robots.push(new Robot(...spawn_locations[next_spawn_location]));
-          kills += 1;
+          current_kills += 1;
         } else {
-          kills += 1;
+          current_kills += 1;
         }
       }
 
     });
+    // Handle "n" key trigger to switch the time of day
     this.key_triggered_button("switch time of day", ["n"], function () {
       if (this.time_of_day == "day") {
         this.time_of_day = "night";
@@ -547,12 +577,10 @@ export class Project_Base extends Scene {
     // "Constructor" statements would go within this if
     // We do it here instead of the constructor above so that we have access to context and program state
     if (!context.scratchpad.controls) {
-      // this.children.push( context.scratchpad.controls = new defs.Movement_Controls() );
       this.children.push(context.scratchpad.controls = new FPS_Controls());
-      // program_state.set_camera( Mat4.translation( 0,0,0 ) );
       program_state.set_camera(Mat4.look_at(vec3(0, 0, 0), vec3(0, 0, -1), vec3(0, 1, 0)));
 
-      // Spawn all robots
+      // Spawn all three robots
       this.robots.push(new Robot(0, 0.3, -25));
       this.robots.push(new Robot(10, 0.3, -45));
       this.robots.push(new Robot(-10, 0.3, -45));
@@ -562,30 +590,14 @@ export class Project_Base extends Scene {
     // Default Required Variables
     program_state.projection_transform = Mat4.perspective(Math.PI / 4, context.width / context.height, 1, 150);
     const t = this.t = program_state.animation_time / 1000;
-    const angle = Math.sin(t);
     if (this.time_of_day == "day")
       program_state.lights = this.day_lights;
     else
       program_state.lights = this.night_lights;
   }
 
-  set_bounce(b, x, z){
-    b.bounce_t = 1;
-    b.x_diff = x;
-    b.z_diff = z;
-  }
-
-  set_collapse(b) {
-    b.state = 1;
-    b.time = this.t;
-    b.linear_velocity[0] = (Math.random() + 1) * 1.2;
-    b.linear_velocity[1] = (Math.random() + 1) * 1.2;
-    b.linear_velocity[2] = (Math.random() + 1) * 1.2;
-  }
-
   draw_robot(context, program_state, index) {
     let robot_state = this.robots[index].state;
-    let t = program_state.animation_time / 1000;
     // Variable oot is the origin offset transformation.
     let oot = Mat4.identity()
         .times(Mat4.rotation(g_z_rot, 0, 1, 0))
@@ -598,11 +610,12 @@ export class Project_Base extends Scene {
       this.robots[index].e_dist = Math.sqrt(Math.pow(this.robots[index].x_diff, 2) + Math.pow(this.robots[index].z_diff, 2));
     }
 
+    // Copy variables to refer to them by shorter names
     let x_location_diff = this.robots[index].x_diff;
     let z_location_diff = this.robots[index].z_diff;
     let euclidean_dist = this.robots[index].e_dist ? this.robots[index].e_dist : 1;
 
-    // Prevent robot from flipping 180 degrees when out of the range of Math.atan
+    // Prevent robot from flipping 180 degrees when out of the range of Math.atan function
     if (x_location_diff > 0 && z_location_diff > 0)
       x_rotation_angle = Math.atan(x_location_diff / z_location_diff) - Math.PI;
     else if (x_location_diff < 0 && z_location_diff > 0)
@@ -610,13 +623,14 @@ export class Project_Base extends Scene {
     else
       x_rotation_angle = Math.atan((x_location_diff) / (z_location_diff));
 
-    // Alive
+    // Robot is alive
     if (robot_state == 0) {
 
-      // Find the closest robot. Allows the player to die
+      // Find the closest robot. Checks if player dies
       if (euclidean_dist < closest_robot_dist)
         closest_robot_dist = euclidean_dist;
 
+      // Bounce the robot off an immovable object
       for (let c of this.immovables) {
         if (this.robots[index].check_if_colliding(c) && this.robots[index].bounce_t == 0)
         this.robots[index].bounce_t = 1;
@@ -626,9 +640,10 @@ export class Project_Base extends Scene {
           this.robots[index].bounce_t = 1;
       }
 
+      // Separate translation from rotation
+
+      // Update the translation globally so that the robots movement is procedural
       if(this.robots[index].bounce_t == 0){
-        // Separate translation from rotation
-        // Update the translation globally so that the robots movement is procedural
         this.robots[index].location = this.robots[index].location
             .times(Mat4.translation(-1 * x_location_diff / (10 * euclidean_dist), 0, -1 * z_location_diff / (10 * euclidean_dist)));
       }else{
@@ -636,7 +651,7 @@ export class Project_Base extends Scene {
             .times(Mat4.translation(1 * x_location_diff / ( 10 * euclidean_dist), 0,  1 * z_location_diff / (10* euclidean_dist)));
         this.robots[index].bounce_t+=1;
       }
-
+      // Reset the bounce
       if(this.robots[index].bounce_t >= 20)
         this.robots[index].bounce_t = 0;
 
@@ -654,10 +669,11 @@ export class Project_Base extends Scene {
           .times(Mat4.scale(0.5, 0.5, 0.5));
     }
 
-    // Collapse
+    // Robot is collapsing
     else if (robot_state == 1) {
 
-      let broken_parts = 0;
+      // Initialize variables
+      // All transformations here are relative to the top torso
       var top_torso_transform = this.robots[index].location.times(Mat4.rotation(x_rotation_angle, 0, 1, 0));
       let t = (this.t - this.robots[index].time) * 1.5;
       let x = this.robots[index].linear_velocity[0] * t;
@@ -709,12 +725,15 @@ export class Project_Base extends Scene {
         this.robots[index].right_hand = top_torso_transform.times(Mat4.translation(-5 - x, -.5 + y3, 0))
             .times(Mat4.scale(0.5, 0.5, 0.5)).times(Mat4.rotation(Math.PI / 3, 0, 0, -1));
       }
+      // If the robot has 7 broken parts, it has finished collapsing and is now dead.
+      // Set its state to dead (2)
       if (this.robots[index].broken_parts == 7) {
         this.robots[index].state = 2;
       }
     }
 
     // Draw Robot at robot_center
+    // Day textures have ambient lighting at 1 while night textures have ambient lighting at 0.1
     if (this.time_of_day == "day") {
       this.shapes.head.draw(context, program_state, oot.times(this.robots[index].head), this.materials.robot_texture);
       this.shapes.top_torso.draw(context, program_state, oot.times(this.robots[index].torso), this.materials.robot_texture);
@@ -734,13 +753,14 @@ export class Project_Base extends Scene {
     }
   }
 
-  //Function to draw the trees and rocks
+  // Draw the trees and rocks
   draw_trees(context, program_state, model_transform) {
     let moot = model_transform
         .times(Mat4.rotation(g_z_rot, 0, 1, 0))
         .times(Mat4.translation(...g_origin_offset));
     for (var i = 0; i < 36; i += 1) {
       if (i % 2 == 0) {
+        // Adjust ambient lighting based on time of day
         if (this.time_of_day == "day") {
           this.shapes.tree_trunk.draw(context, program_state, moot.times(Mat4.translation(this.random_x[i], 0.5, this.random_z[i])), this.materials.tree_trunk);
           this.shapes.tree_leaves.draw(context, program_state, moot.times(Mat4.translation(this.random_x[i], 1.4, this.random_z[i])), this.materials.tree_leaves);
@@ -757,9 +777,9 @@ export class Project_Base extends Scene {
     }
   }
 
-  //Function to draw the pond
+  // Draw the pond
   draw_pond(context, program_state, model_transform) {
-    //Draw water
+    // Draw flowing water
     let oot = Mat4.identity()
         .times(Mat4.rotation(g_z_rot, 0, 1, 0))
         .times(Mat4.translation(...g_origin_offset));
@@ -774,7 +794,7 @@ export class Project_Base extends Scene {
       this.shapes.pond.draw(context, program_state, this.r, this.materials.water.override({ambient: 0.3}));
     this.shapes.pond.copy_onto_graphics_card(context.context, ["position", "normal"], false);
 
-    //Draw walls
+    // Draw walls of pond
     let moot = model_transform
         .times(Mat4.rotation(g_z_rot, 0, 1, 0))
         .times(Mat4.translation(...g_origin_offset));
@@ -791,7 +811,8 @@ export class Project_Base extends Scene {
     }
   }
 
-  draw_boundary(context, program_state, model_transform){
+  // Draw fence surrounding the map
+  draw_boundary(context, program_state, model_transform) {
 
     let moot = model_transform
         .times(Mat4.rotation(g_z_rot, 0, 1, 0))
@@ -825,9 +846,7 @@ export class Project_Base extends Scene {
     }
   }
 
-  // The new version of the function will also translate according to the world offset, which
-  // is a (x, y, z) tuple which will help us to make it look like the player is moving, but
-  // in actuality, the world is the one moving. This is done to make computations easier.
+  // Draw level
   draw_environment(context, program_state, model_transform)
     {
       let ground_transform = model_transform
@@ -877,7 +896,7 @@ export class Project extends Project_Base
         }
       }
       // If player is alive
-      else if (kills < max_robots && kills <= 10) {
+      else if (current_kills < max_robots && current_kills <= 10) {
         // Draw robot
         for (var i = 0; i < this.robots.length; i++)
           this.draw_robot(context, program_state, i);
@@ -885,13 +904,13 @@ export class Project extends Project_Base
         // Draw environment
         this.draw_environment(context, program_state, model_transform);
 
+        // Position raygun
         this.pistol_transform = Mat4.identity()
-            //.times(Mat4.rotation(g_z_rot, 0, 1, 0))
             .times(Mat4.translation(1.5, -0.9, -3))
             .times(Mat4.rotation(-4 * Math.PI / 8, 0, 1, 0))
-            //.times(Mat4.rotation(Math.PI / 2, 1, 0, 0))
             .times(Mat4.scale(.4, .4, .4));
 
+        // Draw bullet
         if(this.fired_bullet){
           if(this.bullet_transform[0][3] < 0.1){
             this.bullet_transform = this.pistol_transform;
@@ -902,39 +921,41 @@ export class Project extends Project_Base
           }
         }
 
+        // Draw crosshairs
         let crosshair_top_transform = Mat4.identity().times(Mat4.translation(0, 0.05, -1.5)).times(Mat4.scale(0.005, 0.02, 0.01))
         let crosshair_bottom_transform = Mat4.identity().times(Mat4.translation(0, -0.05, -1.5)).times(Mat4.scale(0.005, 0.02, 0.01))
         let crosshair_left_transform = Mat4.identity().times(Mat4.translation(-0.05, 0, -1.5)).times(Mat4.scale(0.02, 0.005, 0.01))
         let crosshair_right_transform = Mat4.identity().times(Mat4.translation(0.05, 0, -1.5)).times(Mat4.scale(0.02, 0.005, 0.01))
-
         this.shapes.box.draw(context, program_state, crosshair_top_transform, this.materials.plastic.override({color: [1, 0, 0, 1]}));
         this.shapes.box.draw(context, program_state, crosshair_bottom_transform, this.materials.plastic.override({color: [1, 0, 0, 1]}));
         this.shapes.box.draw(context, program_state, crosshair_left_transform, this.materials.plastic.override({color: [1, 0, 0, 1]}));
         this.shapes.box.draw(context, program_state, crosshair_right_transform, this.materials.plastic.override({color: [1, 0, 0, 1]}));
 
+        // Draw raygun
         this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(0.5, 0.5, 0.5)).times(Mat4.translation(0.5, 0, -1)), this.materials.raygun);
 
-        if (kills == 0)
+        // Draw HUD
+        if (current_kills == 0)
           this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(1, 1, 1)).times(Mat4.translation(0.1, 0, -0.5)), this.materials.score0);
-        else if (kills == 1)
+        else if (current_kills == 1)
           this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(1, 1, 1)).times(Mat4.translation(0.1, 0, -0.5)), this.materials.score1);
-        else if (kills == 2)
+        else if (current_kills == 2)
           this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(1, 1, 1)).times(Mat4.translation(0.1, 0, -0.5)), this.materials.score2);
-        else if (kills == 3)
+        else if (current_kills == 3)
           this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(1, 1, 1)).times(Mat4.translation(0.1, 0, -0.5)), this.materials.score3);
-        else if (kills == 4)
+        else if (current_kills == 4)
           this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(1, 1, 1)).times(Mat4.translation(0.1, 0, -0.5)), this.materials.score4);
-        else if (kills == 5)
+        else if (current_kills == 5)
           this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(1, 1, 1)).times(Mat4.translation(0.1, 0, -0.5)), this.materials.score5);
-        else if(kills == 6)
+        else if(current_kills == 6)
           this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(1, 1, 1)).times(Mat4.translation(0.1, 0, -0.5)), this.materials.score6);
-        else if(kills == 7)
+        else if(current_kills == 7)
            this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(1, 1, 1)).times(Mat4.translation(0.1, 0, -0.5)), this.materials.score7);
-        else if(kills == 8)
+        else if(current_kills == 8)
            this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(1, 1, 1)).times(Mat4.translation(0.1, 0, -0.5)), this.materials.score8);
-        else if(kills == 9)
+        else if(current_kills == 9)
            this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(1, 1, 1)).times(Mat4.translation(0.1, 0, -0.5)), this.materials.score9);
-        else if(kills == 10)
+        else if(current_kills == 10)
            this.shapes.box.draw(context, program_state, Mat4.identity().times(Mat4.scale(1, 1, 1)).times(Mat4.translation(0.1, 0, -0.5)), this.materials.score10);
       }
       // If player wins
@@ -945,6 +966,5 @@ export class Project extends Project_Base
           this.won = true;
         }
       }
-
     }
 }
